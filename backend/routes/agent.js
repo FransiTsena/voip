@@ -11,11 +11,12 @@ const {
     getAgentById,
 
 } = require('../controllers/agentControllers/agentController');
-const { deleteSingleAgents, getAllAgents } = require('../controllers/agents');
-const { verifyToken } = require('../controllers/authController');
+const {deleteExtension} = require('../controllers/agentControllers/deleteExtension'); // Import the delete function
+const {  getAllAgents } = require('../controllers/agents');
+// const { verifyToken } = require('../controllers/authController');
 
 // Protect all agent routes
-router.use(verifyToken);
+// router.use(verifyToken);
 
 // Define agent routes here
 
@@ -28,7 +29,7 @@ router.get("/", getAllExtensions);
 router.get("/:number", getExtensionByUserExtension);
 
 // // Delete a single agent
-router.delete("/:extensionId", deleteSingleAgents);
+router.delete("/:extensionId", deleteExtension);
 
 // Update an agent's details
 router.put("/:extensionId", updateExtension);

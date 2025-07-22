@@ -1,4 +1,3 @@
-import React from 'react';
 import Dashboard from './components/Dashboard';
 import RequireAuth from './components/RequireAuth';
 import './App.css';

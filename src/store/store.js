@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import axios from 'axios';
-
-const baseUrl = process.env.BASE_URL || 'http://localhost:4000/api';
+const baseUrl = require("../baseUrl")
 
 const useStore = create((set) => ({
   tickets: [],

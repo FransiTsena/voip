@@ -19,23 +19,32 @@ const createExtension = async (req, res) => {
       });
     }
 
+    var ext = req.body;
+    
+    const hashedPassword = await bcrypt.hash(req.body.secret, 10);
+    ext["secret"] = hashedPassword;
+
     // Create a new extension instance with data from the request body
     const newExtension = new Ex(req.body);
 
     // Save the extension to the database
     const savedExtension = await newExtension.save();
 
+    console.log(req.body.userExtension);
+    console.log(req.body.secret);
     // If agent credentials are provided, create agent for authentication
-    if (req.body.username && req.body.passwordForNewUser) {
-      const existingAgent = await Agent.findOne({ username: req.body.username });
+    if (req.body.userExtension && req.body.secret) {
+      console.log("Ohhhhh I am trying, tring");
+
+      const existingAgent = await Agent.findOne({ username: req.body.userExtension });
+      console.log(existingAgent);
       if (existingAgent) {
         // Optionally update agent info, or skip creation
       } else {
-        const hashedPassword = await bcrypt.hash(req.body.passwordForNewUser, 10);
         const agent = new Agent({
-          username: req.body.username,
+          username: req.body.userExtension,
           password: hashedPassword,
-          name: req.body.displayName,
+          name: req.body.displayName??"Agent " + req.body.userExtension,
           email: req.body.email || ''
         });
         await agent.save();

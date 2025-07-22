@@ -1,29 +1,30 @@
 import React, { useState } from 'react';
-import { useDispatch } from 'react-redux';
 import useStore from '../store/store';
+import { baseUrl } from '../baseUrl';
 
 const Login = ({ onSwitch }) => {
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const setAuth = useStore(state => state.setAuth);
-
+    console.log(baseUrl)
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         try {
-            const res = await fetch('/api/auth/login', {
+            const res = await fetch(`${baseUrl}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
             });
             const data = await res.json();
-            if (res.ok) {
-                localStorage.setItem('token', data.token);
+            console.log(data)
+            // if (res.ok) {
+            //     localStorage.setItem('token', data.token);
                 setAuth({ agent: data.agent, token: data.token });
-            } else {
-                setError(data.message || 'Login failed');
-            }
+            // } else {
+            //     setError(data.message || 'Login failed');
+            // }
         } catch (err) {
             setError('Server error');
         }
