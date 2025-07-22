@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+
 const queueSchema = new mongoose.Schema({
   queueId: { type: String, required: true, unique: true }, // e.g., 300
   name: { type: String, required: true }, // e.g., "Support Queue"
@@ -37,6 +38,25 @@ const queueSchema = new mongoose.Schema({
     type: [String], // Array of member extensions, e.g., ["1001", "1002"]
     default: []
   }, // Default to an empty array
-});
+  generalSettings: {
+    type: Object,
+    required: true,
+    default: {},
+  },
+  queueAgents: {
+    type: [Object], // Changed back to [Object] as per your request
+    default: [],
+  },
+  timingAgentOptions: {
+    type: Object,
+    default: {},
+  },
+  capacityOptions: {
+    type: Object,
+    default: {},
+  },
+}, { timestamps: true }); // Add createdAt and updatedAt timestamps
 
-module.exports = mongoose.model('Queue', queueSchema);
+const Queue = mongoose.model('Queue', queueSchema);
+
+module.exports = Queue;

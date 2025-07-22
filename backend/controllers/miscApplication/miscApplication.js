@@ -45,7 +45,6 @@ const regenerateMiscAppConfig = async () => {
 const createMiscApplication = async (req, res) => {
   try {
     const { name, featureCode, destination } = req.body;
-    console.log(req.body);
 
     // 1. Validate required fields
     if (!featureCode) {
@@ -79,7 +78,7 @@ const createMiscApplication = async (req, res) => {
     await miscApplication.save();
 
     // 3. Regenerate the config file with all applications
-    await regenerateMiscAppConfig();
+    // await regenerateMiscAppConfig();
 
     res.status(201).json({
       status: 201,
@@ -107,12 +106,21 @@ const createMiscApplication = async (req, res) => {
 
 // Controller: Get All Misc Applications
 const getAllMiscApplications = async (req, res) => {
+<<<<<<< HEAD
   try {
     const miscApplications = await miscApplicationModel.find({});
     res.json({ success: true, count: miscApplications.length, data: miscApplications });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+=======
+    try {
+        const miscApplications = await miscApplicationModel.find({});
+        res.json(miscApplications);
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+>>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
 };
 
 // Controller: Delete Misc Application

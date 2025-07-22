@@ -155,8 +155,9 @@ const createIVRMenu = async (req, res) => {
     // --- Key Change: Fetch ALL IVRs and generate config for all ---
 
     // 3. Fetch all IVR menus from the database
-    const allIVRs = await IVRMenu.find({});
+    // const allIVRs = await IVRMenu.find({});
 
+<<<<<<< HEAD
     let combinedAsteriskConfig = '';
     let combinedExtensionBindings = '[from-internal]\n'; // Start a common context for extensions
 
@@ -180,34 +181,57 @@ const createIVRMenu = async (req, res) => {
       combinedExtensionBindings += '\n[ext-queues]\nexten => _XXXX,1,Answer()\n same => n,Queue(${EXTEN})\n same => n,Hangup()\n';
 
     }
+=======
+    // let combinedAsteriskConfig = '';
+    // let combinedExtensionBindings = '[from-internal-custom]\n'; // Start a common context for extensions
 
-    // Final combined configuration
-    const finalConfig = combinedAsteriskConfig + '\n' + combinedExtensionBindings;
+    // for (const ivr of allIVRs) {
+    //     // Fetch announcement and invalid retry recordings for each IVR
+    //     const announcementRecording = await AudioRecording.findById(ivr.dtmf.announcement.id);
+    //     const originalNamesAnnouncement = (announcementRecording?.audioFiles || []).map(file => file.originalName);
+
+    //     let originalNamesInvalidRetryRecording = [];
+    //     if (ivr.dtmf.invalidRetryRecording?.id) {
+    //         const invalidRetryRecording = await AudioRecording.findById(ivr.dtmf.invalidRetryRecording.id);
+    //         originalNamesInvalidRetryRecording = (invalidRetryRecording?.audioFiles || []).map(file => file.originalName);
+    //     }
+
+    //     // Generate config for the current IVR
+    //     combinedAsteriskConfig += generateAsteriskConfig(ivr, originalNamesAnnouncement, originalNamesInvalidRetryRecording);
+
+    //     // Generate extension binding for the current IVR if it has one
+    //     combinedExtensionBindings += generateExtensionBinding(ivr);
+    // }
+>>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
+
+    // // Final combined configuration
+    // const finalConfig = combinedAsteriskConfig + '\n' + combinedExtensionBindings;
 
 
     // 4. Write the combined config to file and reload Asterisk
-    const configPath = '/etc/asterisk/extensions_custom.conf';
-    try {
-      await writeFileWithSudo(configPath, finalConfig);
-      await reloadAsterisk(); // Changed to reloadAsterisk for clarity
+    res.status(201).json({
+      status: 201,
+      message: 'IVR menu created and all IVRs reconfigured successfully',
+      menu,
+      // config: finalConfig // Uncomment for debugging if needed
+    });
+    // const configPath = '/etc/asterisk/extensions_custom.conf';
+    // try {
+    //   await writeFileWithSudo(configPath, finalConfig);
+    //   await reloadAsterisk(); // Changed to reloadAsterisk for clarity
 
-      res.status(201).json({
-        status: 201,
-        message: 'IVR menu created and all IVRs reconfigured successfully',
-        menu,
-        // config: finalConfig // Uncomment for debugging if needed
-      });
-    } catch (error) {
-      console.error('Error saving Asterisk configuration or reloading:', error);
-      // If config save fails, delete the menu we just created to prevent inconsistencies
-      await IVRMenu.findByIdAndDelete(menu._id);
+    //   r
+    // } catch (error) {
+    //   console.error('Error saving Asterisk configuration or reloading:', error);
+    //   // If config save fails, delete the menu we just created to prevent inconsistencies
+    //   await IVRMenu.findByIdAndDelete(menu._id);
 
-      res.status(500).json({
-        status: 500,
-        error: 'Failed to save Asterisk configuration or reload Asterisk',
-        details: error.message
-      });
-    }
+    //   res.status(500).json({
+    //     status: 500,
+    //     error: 'Failed to save Asterisk configuration or reload Asterisk',
+    //     details: error.message
+    //   });
+    // }
   } catch (error) {
     console.error('Error creating IVR menu:', error);
     res.status(500).json({

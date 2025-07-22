@@ -3,8 +3,6 @@ const ini = require('ini');
 const { exec } = require('child_process');
 const Queue = require('../models/queue');
 const asyncHandler = require('express-async-handler');
-const { getAllQueuesFromAmi } = require('../utils/queueHelper');
-const { ami } = require('../config/amiConfig');
 const Extension = require('../models/extension');
 
 const QUEUE_CUSTOM_CONF_PATH = "/etc/asterisk/queues_custom.conf";
@@ -155,14 +153,21 @@ const errorResponse = (res, code, msg) => res.status(code).json({ message: msg }
 
 // Create a new queue (config + MongoDB + reload)
 const createQueue = asyncHandler(async (req, res) => {
+<<<<<<< HEAD
   const { queueId, members = [], ...rest } = req.body;
   if (!queueId) return errorResponse(res, 400, 'queueId is required.');
   const existing = await Queue.findOne({ queueId });
+=======
+  console.log(req.body)
+>>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
   if (existing) return errorResponse(res, 409, 'Queue with this ID already exists.');
   console.log(`[PJSIP] Creating queue ${queueId}...`);
   console.log(`[PJSIP] Members: ${members}`);
   console.log(`[PJSIP] Rest: ${rest}`);
+<<<<<<< HEAD
 
+=======
+>>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
   try {
     console.log(`[PJSIP] Upserting queue ${queueId}...`);
     upsertQueueConfig(queueId, rest, members);
@@ -222,6 +227,10 @@ const updateQueue = asyncHandler(async (req, res) => {
 // Delete a queue (config + MongoDB + reload)
 const deleteQueue = asyncHandler(async (req, res) => {
   const { queueId } = req.params;
+  console.log(queueId)
+  console.log(queueId)
+  console.log(queueId)
+  console.log(queueId)
   if (!queueId) return errorResponse(res, 400, 'queueId is required.');
   try {
     removeQueueConfig(queueId);
@@ -238,6 +247,7 @@ const deleteQueue = asyncHandler(async (req, res) => {
 const addMemberToQueue = asyncHandler(async (req, res) => {
   const { queueId } = req.params;
   const { member } = req.body;
+  console.log(req.body)
   if (!queueId || !member) return errorResponse(res, 400, 'queueId and member are required.');
   const queue = await Queue.findOne({ queueId });
   if (!queue) return errorResponse(res, 404, 'Queue not found');

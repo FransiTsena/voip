@@ -6,12 +6,13 @@ require("dotenv").config();
 const connectDB = require("./config/db");
 const cors = require("cors");
 const agentRoutes = require("./routes/agent");
-const queueRoutes = require("./routes/queue");
+const queueRoutes = require("./routes/queueRoutes");
 const reportRoutes = require("./routes/report");
 const ivrRoutes = require('./routes/ivrRoutes');
 const recordingRoutes = require('./routes/recordingRoutes');
 const morgan = require("morgan");
 const miscApplicationRoute = require("./routes/miscApplication");
+const applyConfigRoute = require("./routes/applyConfig");
 // =========================
 // App Initialization
 // =========================
@@ -45,7 +46,8 @@ app.use("/api/agent", agentRoutes);
 app.use("/api/queue", queueRoutes);
 app.use("/api/report", reportRoutes);
 
-
+// Apply config route
+app.use("/api/apply-config", applyConfigRoute);
 
 // IVR Routes
 app.use('/api/ivr', ivrRoutes);

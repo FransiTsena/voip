@@ -10,7 +10,6 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { ami, setupAmi } = require("./config/amiConfig");
 const app = require("./app");
-
 const PORT = process.env.PORT ?? 4000;
 const USERNAME = process.env.AMI_USERNAME ?? "admin";
 const PASSWORD = process.env.AMI_PASSWORD ?? "admin@123";
