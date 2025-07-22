@@ -13,6 +13,12 @@ const recordingRoutes = require('./routes/recordingRoutes');
 const morgan = require("morgan");
 const miscApplicationRoute = require("./routes/miscApplication");
 const applyConfigRoute = require("./routes/applyConfig");
+const shiftRoutes = require('./routes/shiftRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const kbRoutes = require('./routes/kbRoutes');
+const metricsRoutes = require('./routes/metricsRoutes');
+const callRoutes = require('./routes/callRoutes');
 // =========================
 // App Initialization
 // =========================
@@ -55,6 +61,24 @@ app.use('/api/audio', recordingRoutes);
 
 // Misc Application Route
 app.use("/api/misc", miscApplicationRoute);
+
+// Shift Routes
+app.use('/api/shifts', shiftRoutes);
+
+// Ticket Routes
+app.use('/api/tickets', ticketRoutes);
+
+// Customer Routes
+app.use('/api/customers', customerRoutes);
+
+// Knowledge Base Routes
+app.use('/api/kb', kbRoutes);
+
+// Metrics Routes
+app.use('/api/metrics', metricsRoutes);
+
+// Call Routes
+app.use('/api/call', callRoutes);
 
 // =========================
 // Export App
