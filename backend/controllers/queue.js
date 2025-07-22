@@ -153,21 +153,13 @@ const errorResponse = (res, code, msg) => res.status(code).json({ message: msg }
 
 // Create a new queue (config + MongoDB + reload)
 const createQueue = asyncHandler(async (req, res) => {
-<<<<<<< HEAD
   const { queueId, members = [], ...rest } = req.body;
   if (!queueId) return errorResponse(res, 400, 'queueId is required.');
   const existing = await Queue.findOne({ queueId });
-=======
-  console.log(req.body)
->>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
   if (existing) return errorResponse(res, 409, 'Queue with this ID already exists.');
   console.log(`[PJSIP] Creating queue ${queueId}...`);
   console.log(`[PJSIP] Members: ${members}`);
   console.log(`[PJSIP] Rest: ${rest}`);
-<<<<<<< HEAD
-
-=======
->>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
   try {
     console.log(`[PJSIP] Upserting queue ${queueId}...`);
     upsertQueueConfig(queueId, rest, members);
