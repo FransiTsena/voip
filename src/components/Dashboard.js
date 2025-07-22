@@ -1,4 +1,5 @@
 import React from 'react';
+import useStore from '../store/store';
 import TicketList from './TicketList';
 import TicketDetail from './TicketDetail';
 import CustomerInfo from './CustomerInfo';
@@ -7,6 +8,8 @@ import CallControlBar from './CallControlBar';
 import ShiftTimer from './ShiftTimer';
 
 const Dashboard = () => {
+  const agent = useStore(state => state.agent);
+  const logout = useStore(state => state.logout);
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Left Sidebar */}
@@ -33,6 +36,18 @@ const Dashboard = () => {
       <div className="w-1/4 bg-white border-l">
         <CustomerInfo />
         <KnowledgeBaseSearch />
+        <h2 className="p-4 text-lg font-bold border-b">Agent Info</h2>
+        {agent && (
+          <div className="p-4">
+            <div><strong>Name:</strong> {agent.name}</div>
+            <div><strong>Username:</strong> {agent.username}</div>
+            <div><strong>Email:</strong> {agent.email}</div>
+            <button
+              className="mt-4 w-full bg-red-500 text-white p-2 rounded"
+              onClick={logout}
+            >Logout</button>
+          </div>
+        )}
         <h2 className="p-4 text-lg font-bold border-b">Actions</h2>
         {/* Actions */}
       </div>

@@ -19,6 +19,7 @@ const customerRoutes = require('./routes/customerRoutes');
 const kbRoutes = require('./routes/kbRoutes');
 const metricsRoutes = require('./routes/metricsRoutes');
 const callRoutes = require('./routes/callRoutes');
+const authRoutes = require('./routes/auth');
 // =========================
 // App Initialization
 // =========================
@@ -33,7 +34,7 @@ connectDB();
 // Middleware
 // =========================
 app.use(express.json());
-app.use(cors());                                            
+app.use(cors());
 app.use(morgan('dev'));
 app.use('/recordings', express.static('/var/lib/asterisk/sounds/en/custom'))
 
@@ -79,6 +80,7 @@ app.use('/api/metrics', metricsRoutes);
 
 // Call Routes
 app.use('/api/call', callRoutes);
+app.use("/api/auth", authRoutes); // Register the new auth route
 
 // =========================
 // Export App

@@ -157,7 +157,6 @@ const createIVRMenu = async (req, res) => {
     // 3. Fetch all IVR menus from the database
     // const allIVRs = await IVRMenu.find({});
 
-<<<<<<< HEAD
     let combinedAsteriskConfig = '';
     let combinedExtensionBindings = '[from-internal]\n'; // Start a common context for extensions
 
@@ -181,28 +180,6 @@ const createIVRMenu = async (req, res) => {
       combinedExtensionBindings += '\n[ext-queues]\nexten => _XXXX,1,Answer()\n same => n,Queue(${EXTEN})\n same => n,Hangup()\n';
 
     }
-=======
-    // let combinedAsteriskConfig = '';
-    // let combinedExtensionBindings = '[from-internal-custom]\n'; // Start a common context for extensions
-
-    // for (const ivr of allIVRs) {
-    //     // Fetch announcement and invalid retry recordings for each IVR
-    //     const announcementRecording = await AudioRecording.findById(ivr.dtmf.announcement.id);
-    //     const originalNamesAnnouncement = (announcementRecording?.audioFiles || []).map(file => file.originalName);
-
-    //     let originalNamesInvalidRetryRecording = [];
-    //     if (ivr.dtmf.invalidRetryRecording?.id) {
-    //         const invalidRetryRecording = await AudioRecording.findById(ivr.dtmf.invalidRetryRecording.id);
-    //         originalNamesInvalidRetryRecording = (invalidRetryRecording?.audioFiles || []).map(file => file.originalName);
-    //     }
-
-    //     // Generate config for the current IVR
-    //     combinedAsteriskConfig += generateAsteriskConfig(ivr, originalNamesAnnouncement, originalNamesInvalidRetryRecording);
-
-    //     // Generate extension binding for the current IVR if it has one
-    //     combinedExtensionBindings += generateExtensionBinding(ivr);
-    // }
->>>>>>> 9da554b5846f67087fda3531c230ea96043fbbd0
 
     // // Final combined configuration
     // const finalConfig = combinedAsteriskConfig + '\n' + combinedExtensionBindings;

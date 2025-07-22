@@ -7,6 +7,10 @@ const {
   updateTicket,
   addCommentToTicket,
 } = require('../controllers/ticketController');
+const { verifyToken } = require('../controllers/authController');
+
+// Protect all ticket routes
+router.use(verifyToken);
 
 router.route('/').get(getTickets).post(createTicket);
 router.route('/:id').get(getTicketById).put(updateTicket);

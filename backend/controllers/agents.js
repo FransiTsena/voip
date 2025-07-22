@@ -405,7 +405,7 @@ const checkExtensionExists = asyncHandler(async (req, res) => {
 });
 
 // Get total count of agents
-getAgentCount = async (req, res) => {
+const getAgentCount = async (req, res) => {
   try {
     const count = await Extension.countDocuments();
     res.json({ success: true, count });
@@ -422,8 +422,8 @@ const getAgentsFromDatabase = async (req, res) => {
   }
 };
 module.exports = {
-  registerAgent,
-  modifyAgent,
+  // registerAgent,
+  // modifyAgent,
   updateAgentStatusRoute,
   getAllAgents,
   deleteSingleAgents,

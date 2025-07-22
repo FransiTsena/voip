@@ -3,6 +3,13 @@ const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/report_controller');
 const agentsController = require('../controllers/agents');
+const {
+    createExtension,
+    getAllExtensions,
+    getExtensionByUserExtension,
+    updateExtension,
+    getAgentById,
+} = require('../controllers/agentControllers/agentController');
 const queueController = require('../controllers/queue');
 
 

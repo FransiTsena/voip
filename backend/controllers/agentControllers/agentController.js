@@ -1,4 +1,6 @@
 const Ex = require('../../models/extension'); // Adjust path as necessary to your Mongoose model
+const Agent = require('../../models/agent');
+const bcrypt = require('bcryptjs');
 const { reloadAsterisk } = require('../../utils/sudo');
 const { generateAndWritePjsipConfigs } = require('./pjsipConfigGenerators'); // Import new utility
 // const { generateAndWriteDialplan } = require('./utils/asteriskDialplanGenerator'); // Import dialplan utility
@@ -23,6 +25,23 @@ const createExtension = async (req, res) => {
     // Save the extension to the database
     const savedExtension = await newExtension.save();
 
+    // If agent credentials are provided, create agent for authentication
+    if (req.body.username && req.body.passwordForNewUser) {
+      const existingAgent = await Agent.findOne({ username: req.body.username });
+      if (existingAgent) {
+        // Optionally update agent info, or skip creation
+      } else {
+        const hashedPassword = await bcrypt.hash(req.body.passwordForNewUser, 10);
+        const agent = new Agent({
+          username: req.body.username,
+          password: hashedPassword,
+          name: req.body.displayName,
+          email: req.body.email || ''
+        });
+        await agent.save();
+      }
+    }
+
     // Fetch all extensions to regenerate PJSIP configs for all
     const allExtensions = await Ex.find({});
 
@@ -31,11 +50,11 @@ const createExtension = async (req, res) => {
 
     // Regenerate and write Asterisk dialplan (e.g., for IVR/Queue bindings to extensions)
     // await generateAndWriteDialplan();
-     await reloadAsterisk();
+    await reloadAsterisk();
     // Respond with the newly created extension and a success message
     return res.status(201).json({
       success: true,
-      message: 'Extension created successfully and Asterisk configurations reloaded!',
+      message: 'Extension and agent created successfully. Asterisk configurations reloaded!',
       extension: savedExtension
     });
   } catch (error) {
@@ -66,7 +85,7 @@ const getAllExtensions = async (req, res) => {
 
     // Respond with the list of extensions
     return res.status(200).json(
-       extensions
+      extensions
     );
   }
   catch (error) {

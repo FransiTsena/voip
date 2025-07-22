@@ -1,23 +1,37 @@
 // =========================
 // Agent Routes
 // =========================
-const express = require("express");
-const { getAllExtensions, createExtension, getAgentById, } = require("../controllers/agentControllers/agentController");
-const { deleteExtension } = require("../controllers/agentControllers/deleteExtension");
-const { getAllAgents, getAgentByNumber } = require("../controllers/agents");
-// const agentController = require("../controllers/agents");
+const express = require('express');
 const router = express.Router();
+const {
+    createExtension,
+    getAllExtensions,
+    getExtensionByUserExtension,
+    updateExtension,
+    getAgentById,
 
+} = require('../controllers/agentControllers/agentController');
+const { deleteSingleAgents, getAllAgents } = require('../controllers/agents');
+const { verifyToken } = require('../controllers/authController');
+
+// Protect all agent routes
+router.use(verifyToken);
+
+// Define agent routes here
+
+module.exports = router;
 // Register a new agent
 router.post("/register", createExtension);
 
 // Get all agents (from Asterisk, not DB)
-router.get("/", getAllAgents);
-router.get("/:number", getAgentByNumber);
+router.get("/", getAllExtensions);
+router.get("/:number", getExtensionByUserExtension);
 
 // // Delete a single agent
-router.delete("/:extensionId", deleteExtension);
+router.delete("/:extensionId", deleteSingleAgents);
 
+// Update an agent's details
+router.put("/:extensionId", updateExtension);
 
 // Get Agent By id
 router.get("/:id", getAgentById);
