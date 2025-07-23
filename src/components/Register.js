@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { baseUrl } from '../baseUrl';
 
 const Register = ({ onSwitch }) => {
     const [username, setUsername] = useState('');
@@ -13,7 +14,7 @@ const Register = ({ onSwitch }) => {
         setError('');
         setSuccess('');
         try {
-            const res = await fetch('/api/auth/register', {
+            const res = await fetch(`${baseUrl}/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password, name, email })

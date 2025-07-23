@@ -1,4 +1,6 @@
 import React from 'react';
+import { SIPProvider } from './SIPProvider';
+import CallPopup from './CallPopup';
 import useStore from '../store/store';
 import TicketList from './TicketList';
 import TicketDetail from './TicketDetail';
@@ -7,51 +9,55 @@ import KnowledgeBaseSearch from './KnowledgeBaseSearch';
 import CallControlBar from './CallControlBar';
 import ShiftTimer from './ShiftTimer';
 
+
 const Dashboard = () => {
   const agent = useStore(state => state.agent);
   const logout = useStore(state => state.logout);
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Left Sidebar */}
-      <div className="w-1/4 bg-white border-r">
-        <h2 className="p-4 text-lg font-bold border-b">Tickets / Customers</h2>
-        <TicketList />
-      </div>
-
-      {/* Main Content */}
-      <div className="flex flex-col flex-1">
-        {/* Top Bar */}
-        <ShiftTimer />
-
-        {/* Ticket Detail */}
-        <div className="flex-1 p-4">
-          <TicketDetail />
+    <SIPProvider>
+      <div className="flex h-screen bg-gray-100">
+        {/* Left Sidebar */}
+        <div className="w-1/4 bg-white border-r">
+          <h2 className="p-4 text-lg font-bold border-b">Tickets / Customers</h2>
+          <TicketList />
         </div>
 
-        {/* Call Control Bar */}
-        <CallControlBar />
-      </div>
+        {/* Main Content */}
+        <div className="flex flex-col flex-1">
+          {/* Top Bar */}
+          <ShiftTimer />
 
-      {/* Right Sidebar */}
-      <div className="w-1/4 bg-white border-l">
-        <CustomerInfo />
-        <KnowledgeBaseSearch />
-        <h2 className="p-4 text-lg font-bold border-b">Agent Info</h2>
-        {agent && (
-          <div className="p-4">
-            <div><strong>Name:</strong> {agent.name}</div>
-            <div><strong>Username:</strong> {agent.username}</div>
-            <div><strong>Email:</strong> {agent.email}</div>
-            <button
-              className="mt-4 w-full bg-red-500 text-white p-2 rounded"
-              onClick={logout}
-            >Logout</button>
+          {/* Ticket Detail */}
+          <div className="flex-1 p-4">
+            <TicketDetail />
           </div>
-        )}
-        <h2 className="p-4 text-lg font-bold border-b">Actions</h2>
-        {/* Actions */}
+
+          {/* Call Control Bar */}
+          <CallControlBar />
+        </div>
+
+        {/* Right Sidebar */}
+        <div className="w-1/4 bg-white border-l">
+          <CustomerInfo />
+          <KnowledgeBaseSearch />
+          <h2 className="p-4 text-lg font-bold border-b">Agent Info</h2>
+          {agent && (
+            <div className="p-4">
+              <div><strong>Name:</strong> {agent.name}</div>
+              <div><strong>Username:</strong> {agent.username}</div>
+              <div><strong>Email:</strong> {agent.email}</div>
+              <button
+                className="mt-4 w-full bg-red-500 text-white p-2 rounded"
+                onClick={logout}
+              >Logout</button>
+            </div>
+          )}
+          <h2 className="p-4 text-lg font-bold border-b">Actions</h2>
+          {/* Actions */}
+        </div>
+        <CallPopup />
       </div>
-    </div>
+    </SIPProvider>
   );
 };
 

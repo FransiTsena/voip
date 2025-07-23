@@ -11,6 +11,7 @@ const reportRoutes = require("./routes/report");
 const ivrRoutes = require('./routes/ivrRoutes');
 const recordingRoutes = require('./routes/recordingRoutes');
 const morgan = require("morgan");
+const cookieParser = require("cookie-parser");
 const miscApplicationRoute = require("./routes/miscApplication");
 const applyConfigRoute = require("./routes/applyConfig");
 const shiftRoutes = require('./routes/shiftRoutes');
@@ -34,7 +35,11 @@ connectDB();
 // Middleware
 // =========================
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+app.use(cors({
+  origin: 'http://localhost:3000', // or your frontend URL
+  credentials: true
+}));
 app.use(morgan('dev'));
 app.use('/recordings', express.static('/var/lib/asterisk/sounds/en/custom'))
 

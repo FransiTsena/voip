@@ -2,7 +2,9 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/voip', {
+    const dbHost = process.env.DB_HOST || '127.0.0.1';
+    const dbName = process.env.DB_NAME || 'voip';
+    await mongoose.connect(`mongodb://${dbHost}:27017/${dbName}`, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
