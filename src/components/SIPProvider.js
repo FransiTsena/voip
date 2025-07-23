@@ -10,8 +10,8 @@ export const useSIP = () => useContext(SIPContext);
 export const SIPProvider = ({ children }) => {
     const agent = useStore(state => state.agent);
     // Use SIP credentials from agent if available, fallback to demo values
-    const SIP_USER = agent?.username || '';
-    const SIP_PASSWORD = agent?.sip?.password || '$2b$10$JkYjqnKdSwqB4Y2Se/tE.OaRbAWoj4UCj0JY7IqyaVm/MQi/Onthm';
+    const SIP_USER = agent?.username || '1006';
+    const SIP_PASSWORD = agent?.sip?.password || '1234';
     const SIP_SERVER = process.env.SERVER_IP || '10.42.0.1';
     const SIP_WS_SERVER = `ws://${SIP_SERVER}:8088/ws`;
     const PC_CONFIG = { iceServers: [], rtcpMuxPolicy: 'require' };
