@@ -1,28 +1,46 @@
 // Get current agent info from token/cookie
-exports.me = async (req, res) => {
-    try {
-        // req.agent is set by verifyToken middleware
-        if (!req.agent) return res.status(401).json({ message: 'Not authenticated' });
-        // Find agent in DB for up-to-date info
-        const agent = await require('../models/agent').findById(req.agent.id).select('-password');
-        if (!agent) return res.status(404).json({ message: 'Agent not found' });
-        res.json({ agent });
-    } catch (err) {
-        res.status(500).json({ message: 'Server error' });
-    }
-};
-const Agent = require('../models/agent');
+const { generateAndWritePjsipConfigs } = require('./agentControllers/pjsipConfigGenerators.js');
+
+const Agent = require('../models/agent.js');
+const Extension = require('../models/extension.js');
+
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+
+
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 
-exports.register = async (req, res) => {
+const me = async (req, res) => {
+    try {
+        // req.user is set by verifyToken middleware
+        if (!req.user) return res.status(401).json({ message: 'Not authenticated' });
+        // Find agent in DB for up-to-date info
+        const agent = await Agent.findById(req.user.id).select('-password');
+
+        try {
+            res.json({ agent, sip: { userExtension: agent.username, password: req.user.token.substring(0, 16) } });
+        } catch (err) {
+            res.status(500).json({ message: 'Server error' });
+        }
+    } catch (error) {
+        console.error('Error fetching current agent:', error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
+
+const logout = (req, res) => {
+    // Clear the access token cookie
+    res.clearCookie('access_token', { path: '/' });
+    res.json({ message: 'Logged out successfully' });
+};
+
+const register = async (req, res) => {
     const { username, password, name, email } = req.body;
     try {
         // Check if agent already exists
-        const existingAgent = await Agent.findOne
-            ({ username });
+        const existingAgent = await Agent.findOne({ userExtension: username });
         if (existingAgent) {
             return res.status(400).json({ message: 'Agent already exists' });
         }
@@ -36,10 +54,7 @@ exports.register = async (req, res) => {
     }
 };
 
-const Extension = require('../models/extension');
-const { generateAndWritePjsipConfigs } = require('./agentControllers/pjsipConfigGenerators');
-
-exports.login = async (req, res) => {
+const login = async (req, res) => {
     const { username, password } = req.body;
     try {
         const agent = await Agent.findOne({ username });
@@ -53,10 +68,11 @@ exports.login = async (req, res) => {
         const token = jwt.sign({ id: agent._id, username: agent.username }, JWT_SECRET, { expiresIn: '8h' });
 
         // Update the agent's extension SIP password to the new token
-        const extension = await Extension.findOne({ username: agent.username });
+        const sipPassword = token.substring(0, 16);
+        const extension = await Extension.findOne({ userExtension: agent.username, });
         if (extension) {
-            extension.passwordForNewUser = token;
-            extension.secret = token;
+            extension.passwordForNewUser = sipPassword;
+            extension.secret = sipPassword;
             await extension.save();
 
             // Regenerate and reload PJSIP config for all extensions
@@ -72,25 +88,17 @@ exports.login = async (req, res) => {
             path: '/',
             maxAge: 8 * 60 * 60 * 1000 // 8 hours
         });
-        res.json({ agent: { id: agent._id, username: agent.username, name: agent.name, email: agent.email }, sip: { username: agent.username, password: token } });
+        res.json({ agent: { id: agent._id, username: agent.username, name: agent.name, email: agent.email }, sip: { username: agent.username, password: sipPassword }, access_token: token });
     } catch (err) {
-        res.status(500).json({ message: 'Server error' });
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 };
 
-exports.verifyToken = (req, res, next) => {
-    // Try to get token from Authorization header (Bearer) or cookie
-    let token = null;
-    const authHeader = req.headers['authorization'];
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-    } else if (req.cookies && req.cookies.access_token) {
-        token = req.cookies.access_token;
-    }
-    if (!token) return res.status(401).json({ message: 'No token provided' });
-    jwt.verify(token, JWT_SECRET, (err, decoded) => {
-        if (err) return res.status(401).json({ message: 'Invalid token' });
-        req.agent = decoded;
-        next();
-    });
+
+module.exports = {
+    me,
+    // refresh,
+    register,
+    login,
+    logout,
 };

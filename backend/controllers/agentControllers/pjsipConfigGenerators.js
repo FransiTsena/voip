@@ -177,7 +177,7 @@ password=${password}
 // Helper to reload Asterisk PJSIP module
 const reloadAsteriskPjsip = async () => {
   try {
-    await execPromise('sudo asterisk -rx "pjsip reload"');
+    await execPromise('sudo asterisk -rx "core reload"');
     console.log('Asterisk PJSIP reloaded successfully.');
   } catch (error) {
     console.error(`Error reloading Asterisk PJSIP: ${error.message}`);

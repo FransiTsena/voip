@@ -47,12 +47,16 @@ const useStore = create((set, get) => ({
       set({ agent: null });
     }
   },
-  logout: () => {
-    if (!isWeb && typeof localStorage !== 'undefined') {
-      localStorage.removeItem('token');
+  logout: async () => {
+    const res = await fetch(`${baseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+    });
+    if (res.status === 200) {
+      localStorage.clear();
+      // cookieStore.clear();
       set({ agent: null, token: null });
-    } else {
-      set({ agent: null }); // token is managed by cookie for web
     }
   },
 

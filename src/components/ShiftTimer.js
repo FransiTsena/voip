@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import useStore from '../store/store';
 
@@ -35,71 +36,65 @@ const ShiftTimer = () => {
       .padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');
     return `${h}:${m}:${s}`;
-    // 
   };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1 bg-gradient-to-tr from-white/90 via-blue-50 to-blue-200/80 backdrop-blur-md rounded-xl shadow border border-blue-100 animate-fade-in relative overflow-hidden min-w-[220px] max-w-xs">
-      {/* Material 3 expressive background accent (subtle for navbar) */}
-      <div className="absolute -top-4 -left-4 w-12 h-12 bg-blue-300/20 rounded-full blur z-0" />
-      <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-300/10 rounded-full blur z-0" />
-      <div className="flex items-center gap-2 z-10">
-        <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-blue-600/10 shadow-inner">
-          <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="text-blue-500">
+    <nav className="w-full flex items-center justify-between py-2.5 bg-white/95 border-b border-gray-200 z-20 relative">
+      <div className="flex items-center gap-1 min-w-[180px]">
+        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 text-gray-500 ">
+          <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l2.5 2.5M12 22a10 10 0 100-20 10 10 0 000 20z" />
           </svg>
         </div>
-        <span className="text-xs font-bold text-blue-900 uppercase tracking-widest">Shift</span>
+        <span className="text-lg font-semibold text-gray-800 tracking-wide">Shift Timer</span>
+      </div>
+      <div className="flex items-center">
         {shift && shift.startTime && !shift.endTime ? (
-          <span className="flex items-center gap-1">
-            <span className="px-2 py-0.5 rounded-full bg-green-300/80 text-green-900 font-bold text-[10px] border border-green-400 animate-pulse shadow">On</span>
-            <span className="font-mono text-xs text-blue-800 bg-blue-100/90 px-2 py-0.5 rounded shadow-inner tracking-widest animate-timer-glow border border-blue-200">
-              {formatTime(timer)}
+          <>
+            <span className="flex items-center">
+              <span className="py-1 rounded-full bg-gray-200 text-gray-700 font-semibold text-xs border border-gray-300 animate-pulse">On</span>
+              <span className="font-mono text-base text-gray-700 bg-gray-100 px-4 py-1 rounded tracking-widest animate-timer-glow border border-gray-200">
+                {formatTime(timer)}
+              </span>
             </span>
-          </span>
+            <button
+              onClick={handleEndShift}
+              className="ml-4 px-4 py-2 text-xs text-white bg-gray-500 rounded-lg font-bold hover:bg-gray-700 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200 flex items-center gap-1"
+              title="End Shift"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" className="text-white" />
+              </svg>
+              <span>End</span>
+            </button>
+          </>
         ) : (
-          <span className="px-2 py-0.5 rounded-full bg-red-200/80 text-red-700 font-bold text-[10px] border border-red-300 shadow">Off</span>
+          <>
+            <span className="px-3 py-1 rounded-full bg-gray-200 text-gray-500 font-semibold text-xs border border-gray-300">Off</span>
+            <button
+              onClick={handleStartShift}
+              className="ml-4 px-4 py-2 text-xs text-white bg-gray-700 rounded-lg font-bold hover:bg-gray-900 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-gray-200 flex items-center gap-1"
+              title="Start Shift"
+            >
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <polygon points="8,5 19,12 8,19" fill="currentColor" className="text-white" />
+              </svg>
+              <span>Start</span>
+            </button>
+          </>
         )}
       </div>
-      {shift && shift.startTime && !shift.endTime ? (
-        <button
-          onClick={handleEndShift}
-          className="ml-2 px-2 py-1 text-xs text-white bg-500 rounded-lg font-bold shadow hover:from-red-600 hover:to-pink-600 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-red-200 animate-fade-in flex items-center gap-1 z-10"
-          title="End Shift"
-        >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="inline-block">
-            <rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" className="text-white" />
-          </svg>
-        </button>
-      ) : (
-        <button
-          onClick={handleStartShift}
-          className="ml-2 px-2 py-1 text-xs text-white bg-green-500 rounded-lg font-bold shadow hover:from-green-600 hover:to-blue-600 transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-green-200 animate-fade-in flex items-center gap-1 z-10"
-          title="Start Shift"
-        >
-          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="inline-block">
-            <polygon points="8,5 19,12 8,19" fill="currentColor" className="text-white" />
-          </svg>
-        </button>
-      )}
       <style>{`
         @keyframes timerGlow {
-          0% { box-shadow: 0 0 0 0 #3b82f680; }
-          70% { box-shadow: 0 0 8px 4px #3b82f640; }
-          100% { box-shadow: 0 0 0 0 #3b82f600; }
+          0% { box-shadow: 0 0 0 0 #a3a3a380; }
+          70% { box-shadow: 0 0 8px 4px #a3a3a340; }
+          100% { box-shadow: 0 0 0 0 #a3a3a300; }
         }
         .animate-timer-glow {
           animation: timerGlow 2s infinite;
         }
-        .animate-fade-in {
-          animation: fadeIn 0.7s;
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-6px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
       `}</style>
-    </div>
+    </nav>
   );
 };
 

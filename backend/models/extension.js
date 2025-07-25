@@ -46,7 +46,7 @@ const extensionSchema = new mongoose.Schema({
   userEqualsPhone: { type: Boolean, default: false },
   sendRPID: { type: String, default: 'Send P-Asserted-Identity header' },
   qualifyFrequency: { type: Number, default: 60 },
-  transport: { type: String, default: '0.0.0.0-udp' },
+  transport: { type: String, default: '0.0.0.0-ws' },
   enableAVPF: { type: Boolean, default: false },
   enableICESupport: { type: Boolean, default: false },
   enableRtcpMux: { type: Boolean, default: false },
@@ -122,7 +122,7 @@ const extensionSchema = new mongoose.Schema({
   notReachableDestination: { type: String, default: 'Unavail Voicemail if Enabled' },
   notReachableCIDPrefix: { type: String, default: '' },
 
- 
+
 }, { timestamps: true });
 
 // Ensure no unique index is created on 'extension' or 'userExtension' at the schema level.

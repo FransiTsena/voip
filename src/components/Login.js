@@ -14,6 +14,7 @@ const Login = ({ onSwitch }) => {
         setError('');
         setLoading(true);
         try {
+            console.log("baseUrl", baseUrl)
             const res = await fetch(`${baseUrl}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
