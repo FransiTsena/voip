@@ -110,15 +110,16 @@ function handleBridgeEnter(event, io) {
 
   // ... (delete from activeRinging) ...
 
-  updateCallLog(Linkedid, {
-    answerTime: new Date(),
-    status: "answered",
-    callee: ConnectedLineNum,    // '1001'
-    calleeName: ConnectedLineName, // 'Agent 1'
-    $addToSet: { channels: { $each: [Channel1, Channel2].filter(Boolean) } },
-  });
+  // updateCallLog(Linkedid, {
+  //   answerTime: new Date(),
+  //   status: "answered",
+  //   callee: ConnectedLineNum,    // '1001'
+  //   calleeName: ConnectedLineName, // 'Agent 1'
+  //   $addToSet: { channels: { $each: [Channel1, Channel2].filter(Boolean) } },
+  // });
   // console.log(on)
   // ⭐ This sends the updated list of ongoing calls to your frontend ⭐
+  console.log("Ongoing calles Updated", state.ongoingCalls);
   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
 }
 /**

@@ -14,7 +14,7 @@ const validateToken = (req, res, next) => {
         if (decoded.exp && Date.now() >= decoded.exp * 1000) {
             return res.status(401).json({ message: 'Token has expired' });
         }
-        req.user = { ...decoded, token };
+        req.user = { id: decoded.id, username: decoded.username, token }; // Extract uid from token
         next();
     });
 }

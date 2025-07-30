@@ -292,6 +292,21 @@ const getQueueCount = async (req, res) => {
   }
 };
 
+// Get report of waiting callers in each queue
+const getQueueWaitingReport = asyncHandler(async (req, res) => {
+  try {
+    const queueWaitingData = Object.entries(state.queueCallers).map(([queue, callers]) => ({
+      queue,
+      waitingCount: callers.length,
+    }));
+
+    res.status(200).json({ success: true, data: queueWaitingData });
+  } catch (error) {
+    console.error('Error fetching queue waiting report:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch queue waiting report', details: error.message });
+  }
+});
+
 module.exports = {
   createQueue,
   getAllQueues,
@@ -301,5 +316,6 @@ module.exports = {
   getQueueMember,
   addMemberToQueue,
   removeMemberFromQueue,
-  getQueueCount
+  getQueueCount,
+  getQueueWaitingReport,
 };

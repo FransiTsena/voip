@@ -1,4 +1,3 @@
-
 const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/report_controller');
@@ -33,6 +32,7 @@ router.get('/queues/:id/members', queueController.getQueueMember);
 router.get('/queues/count', queueController.getQueueCount);
 // GET /report/queues/:id
 router.get('/queues/:id', queueController.getQueue);
+router.get('/queues/waiting-report', queueController.getQueueWaitingReport);
 
 // CALL REPORT ROUTES
 // GET /report/calls

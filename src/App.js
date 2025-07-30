@@ -1,14 +1,17 @@
 import Dashboard from './components/Dashboard';
 import RequireAuth from './components/RequireAuth';
+import { SIPProvider } from './components/SIPProvider';
 import './App.css';
 
 function App() {
   return (
-    <div className="App">
-      <RequireAuth>
-        <Dashboard />
-      </RequireAuth>
-    </div>
+    <SIPProvider>
+      <div className="App">
+        <RequireAuth>
+          <Dashboard />
+        </RequireAuth>
+      </div>
+    </SIPProvider>
   );
 }
 
