@@ -1,59 +1,80 @@
 require('dotenv').config();
-console.log('Loaded ENV:', {
-  PORT: process.env.PORT,
-  AMI_USERNAME: process.env.AMI_USERNAME,
-  AMI_PASSWORD: process.env.AMI_PASSWORD,
-  AMI_HOST: process.env.AMI_HOST,
-  AMI_PORT: process.env.AMI_PORT
-});
 const http = require("http");
 const { Server } = require("socket.io");
-const { ami, setupAmi } = require("./config/amiConfig");
-const app = require("./app");
-const PORT = process.env.PORT ?? 4000;
-const USERNAME = process.env.AMI_USERNAME ?? "admin";
-const PASSWORD = process.env.AMI_PASSWORD ?? "admin@123";
+const AmiClient = require("asterisk-ami-client");
+const app = require("./app"); // Your Express app
+const { setupAmiEventListeners,state } = require('./config/amiConfig');
 
-// Create HTTP server
+// Import the setup function and state from our refactored AMI handler
+
+// --- Configuration ---
+const PORT = process.env.PORT || 4000;
+const AMI_USERNAME = process.env.AMI_USERNAME || "admin";
+const AMI_PASSWORD = process.env.AMI_PASSWORD || "admin@123";
+const AMI_HOST = process.env.AMI_HOST || "127.0.0.1";
+const AMI_PORT = parseInt(process.env.AMI_PORT || 5038, 10);
+
+// --- Server & Socket.IO Setup ---
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST", "DELETE", "UPDATE"],
+    origin: "*", // Be more specific in production, e.g., "http://localhost:3000"
+    methods: ["GET", "POST"],
   },
 });
 
-// Connect to AMI globally at startup
-(async () => {
-  try {
-    await ami.connect(USERNAME, PASSWORD, {
-      host: process.env.AMI_HOST || "10.42.0.1",
-      port: process.env.AMI_PORT || 5038,
+// --- AMI Connection and Application Logic ---
+const ami = new AmiClient();
+
+// Connect to AMI, then set up all event listeners and socket connections.
+ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
+  .then(() => {
+    console.log("✅ [AMI] Connected successfully!");
+
+    // CRITICAL: Set up the AMI event listeners ONCE after a successful connection.
+    setupAmiEventListeners(ami, io);
+
+    // Handle individual client (browser) connections.
+    io.on("connection", (socket) => {
+      console.log(`🔌 Client connected: ${socket.id}`);
+
+      // When a new client connects, send them the current state immediately.
+      // This ensures their dashboard is populated without waiting for a new event.
+      socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
+      socket.emit("queueMembers", state.queueMembers);
+      // You can add more initial state emissions here if needed
+
+      // Handle events received FROM this specific client.
+      socket.on("hangupCall", (linkedId) => {
+        if (!linkedId) return;
+        
+        console.log(`Client ${socket.id} requested hangup for call: ${linkedId}`);
+        const call = state.ongoingCalls[linkedId];
+
+        if (call && call.channels) {
+          // Hang up every channel associated with the call
+          call.channels.forEach(channel => {
+            ami.action({ Action: "Hangup", Channel: channel, Cause: "16" });
+          });
+        } else {
+          console.warn(`Hangup request for unknown call ID: ${linkedId}`);
+        }
+      });
+
+      socket.on("disconnect", () => {
+        console.log(`🔌 Client disconnected: ${socket.id}`);
+      });
     });
-    ami.setMaxListeners(100);
-    global.amiReady = true;
-    console.log("[AMI] Connected globally at startup");
-  } catch (err) {
-    console.error("[AMI] Connection error at startup:", err);
-  }
-})();
 
-// Socket.IO connection
-io.on("connection", async (socket) => {
-  console.log("Client connected");
-  // Initialize AMI for this socket connection
-  setupAmi(io, socket);
-
-  socket.on("disconnect", () => {
-    console.log("Client disconnected");
+  })
+  .catch((err) => {
+    console.error("❌ [AMI] Connection failed. The application cannot start.", err);
+    // Exit the process if we can't connect to Asterisk, as the app is non-functional.
+    process.exit(1);
   });
-});
 
-// Start server and initialize database
-server.listen(PORT, async () => {
-  // await createDatabase();
-  // await syncDB();
-  console.log(`Server started on PORT: ${PORT}`);
-});
 
-module.exports = { io, ami };
+// --- Start Server ---
+server.listen(PORT, () => {
+  console.log(`🚀 Server is live and listening on port ${PORT}`);
+});
