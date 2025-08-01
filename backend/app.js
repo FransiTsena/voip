@@ -22,6 +22,8 @@ const metricsRoutes = require('./routes/metricsRoutes');
 const callRoutes = require('./routes/callRoutes');
 const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contactRoutes');
+
+const supervisorRoutes = require('./routes/supervisorRoutes');
 // =========================
 // App Initialization
 // =========================
@@ -83,6 +85,9 @@ app.use('/api/kb', kbRoutes);
 
 // Metrics Routes
 app.use('/api/metrics', metricsRoutes);
+
+// Supervisor Routes
+app.use('/api/supervisors', supervisorRoutes);
 
 // Call Routes
 app.use('/api/call', callRoutes);

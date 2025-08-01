@@ -94,6 +94,7 @@ function handleDialBegin(event, io) {
  * @param {object} io - The Socket.IO server instance.
  */
 function handleBridgeEnter(event, io) {
+  console.log("BridgeEnter Event:", event);
   const { Linkedid, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName, Channel1, Channel2 } = event;
 
   // ... (check for state.activeRinging[Linkedid]) ...
@@ -119,7 +120,6 @@ function handleBridgeEnter(event, io) {
   // });
   // console.log(on)
   // ⭐ This sends the updated list of ongoing calls to your frontend ⭐
-  console.log("Ongoing calles Updated", state.ongoingCalls);
   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
 }
 /**
@@ -164,7 +164,10 @@ function handleHangup(event, io) {
       io.emit("callEnded", { ...call, endTime: Date.now(), duration });
       updateCallLog(Linkedid, { endTime: new Date(), duration, status: finalStatus, hangupCause: Cause, hangupCauseTxt: CauseTxt });
       
+
+      //got him
       delete state.ongoingCalls[Linkedid];
+      console.log("Ongoing calles Updated Debug", state.ongoingCalls);
       io.emit("ongoingCalls", Object.values(state.ongoingCalls));
     }
   }
