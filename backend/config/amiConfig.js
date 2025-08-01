@@ -1,9 +1,20 @@
 // /ami/handler.js (Example file path)
-
 const CallLog = require("../models/callLog.js");
+const Queue = require("../models/queue.js");
+
+let queueNameMap = {};
+ async function loadQueueNamesMap() {
+  const queues = await Queue.find({}, { queueId: 1, name: 1 }).lean();
+  const map = {};
+  queues.forEach(q => {
+    map[q.queueId] = q.name;
+  });
+  queueNameMap = map;
+}
 
 // Centralized in-memory state for the application
 const state = {
+
   ongoingCalls: {},  // Tracks active, answered calls by linkedId
   activeRinging: {}, // Tracks calls that are currently ringing but not yet answered
   queueData: {},     // Stores parameters for each queue
@@ -88,13 +99,16 @@ function handleDialBegin(event, io) {
   );
 }
 
+const handleQueueStatus = (event) => {
+  // console.log("QueueStatus Event:", event);
+}
+
 /**
  * Handles the 'BridgeEnter' event when a call is answered.
  * @param {object} event - The AMI event object.
  * @param {object} io - The Socket.IO server instance.
  */
 function handleBridgeEnter(event, io) {
-  console.log("BridgeEnter Event:", event);
   const { Linkedid, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName, Channel1, Channel2 } = event;
 
   // ... (check for state.activeRinging[Linkedid]) ...
@@ -199,15 +213,26 @@ function handleQueueParams(event) {
 
 function handleQueueMember(event) {
   const { Queue, Location } = event;
-  if (!state.queueMembers[Queue]) state.queueMembers[Queue] = [];
-  
+
+  // Get human-readable queue name if available
+  const readableQueueName = queueNameMap[Queue] || Queue;
+
+  // Add queueName to the event
+  event.queueName = readableQueueName;
+
+  if (!state.queueMembers[Queue]) {
+    state.queueMembers[Queue] = [];
+  }
+
   const existingIndex = state.queueMembers[Queue].findIndex(m => m.Location === Location);
+
   if (existingIndex !== -1) {
     state.queueMembers[Queue][existingIndex] = event;
   } else {
     state.queueMembers[Queue].push(event);
   }
 }
+
 
 function handleQueueStatusComplete(io) {
     io.emit("queueUpdate", state.queueData);
@@ -271,9 +296,9 @@ function handleContactStatus(event, io) {
  * @param {AmiClient} ami - The configured and connected AMI client instance.
  * @param {object} io - The Socket.IO server instance.
  */
-function setupAmiEventListeners(ami, io) {
+async function setupAmiEventListeners(ami, io) {
   ami.setMaxListeners(50);
-
+  await loadQueueNamesMap();
   // -- Register all event handlers --
   ami.on("DialBegin", (event) => handleDialBegin(event, io));
   ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io));
@@ -282,8 +307,14 @@ function setupAmiEventListeners(ami, io) {
   ami.on("Unhold", (event) => handleUnhold(event, io));
 
   // Queue Events
+//   ami.on("QueueEntry",(event)=>{
+//     console
+// .log("QueueEntry Event received");
+//     console.log("QueueEntry Event received", event);  
+//   })
   ami.on("QueueParams", handleQueueParams);
   ami.on("QueueMember", handleQueueMember);
+  ami.on("QueueStatus", handleQueueStatus)
   ami.on("QueueStatusComplete", () => handleQueueStatusComplete(io));
   ami.on("QueueCallerJoin", (event) => handleQueueCallerJoin(event, io));
   ami.on("QueueCallerLeave", (event) => handleQueueCallerLeave(event, io));
@@ -308,4 +339,4 @@ function setupAmiEventListeners(ami, io) {
   // This avoids adding duplicate listeners.
 }
 
-module.exports = { setupAmiEventListeners, state };
+module.exports = { setupAmiEventListeners, state,loadQueueNamesMap };

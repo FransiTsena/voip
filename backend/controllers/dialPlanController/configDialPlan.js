@@ -233,17 +233,40 @@ const generateAndWriteDialplan = async () => {
         const allExtensions = await Extension.find({});
         const allMiscApps = await MiscApplication.find({}); // Fetch all misc applications
 
-        let combinedDialplan = '[from-internal-custom]\n';
+        let combinedDialplan = '';
 
         // Generate dialplan for each section
-        // Pass allRecordings to generateIvrDialplan as well
         const { ivrConfigSections, ivrBindings } = generateIvrDialplan(allIVRs, allRecordings);
         const agentBindings = generateAgentDialplan(allExtensions);
         const queueBindings = generateQueueDialplan(allQueues);
-        // MODIFIED: Pass allRecordings to generateMiscApplicationDialplan
         const miscAppBindings = generateMiscApplicationDialplan(allMiscApps, allRecordings);
 
-        // Header
+        // Define the static ChanSpy dialplan contexts
+        const chanSpyDialplan = `
+[targeted-chanspy]
+exten => _556.,1,NoOp(Targeted ChanSpy for extension \${EXTEN:3})
+;exten => _556.,n,Authenticate(1234)
+exten => _556.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _556.,n,ChanSpy(PJSIP/\${EXTEN:3},q)
+exten => _556.,n,Hangup
+
+[targeted-chanspy-whisper]
+exten => _557.,1,NoOp(Targeted ChanSpy Whisper for extension \${EXTEN:3})
+;exten => _557.,n,Authenticate(1234)
+exten => _557.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _557.,n,ChanSpy(PJSIP/\${EXTEN:3},qw)
+exten => _557.,n,Hangup
+
+[targeted-chanspy-barge]
+exten => _558.,1,NoOp(Targeted ChanSpy Barge for extension \${EXTEN:3})
+;exten => _558.,n,Authenticate(1234)
+exten => _558.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _558.,n,ChanSpy(PJSIP/\${EXTEN:3},qB)
+exten => _558.,n,Hangup
+`;
+
+        // Start with the main custom context and add dynamic and static content
+        combinedDialplan += '[from-internal-custom]\n';
         combinedDialplan += ';*******************************************************************************\n';
         combinedDialplan += '; AUTO-GENERATED DIALPLAN By INSA-PBX - DO NOT EDIT MANUALLY                             *\n';
         combinedDialplan += ';*******************************************************************************\n';
@@ -252,9 +275,8 @@ const generateAndWriteDialplan = async () => {
         if (ivrBindings.trim().length > 0 || ivrConfigSections.trim().length > 0) {
             combinedDialplan += '\n; --- IVR (Interactive Voice Response) Menus ---\n';
             combinedDialplan += ivrBindings.trim() + '\n';
-            combinedDialplan += ivrConfigSections.trim() + '\n';
         }
-
+        
         // Add Agent (Extension) section
         if (agentBindings.trim().length > 0) {
             combinedDialplan += '\n; --- Agent (Extension) Dialplan ---\n';
@@ -266,13 +288,24 @@ const generateAndWriteDialplan = async () => {
             combinedDialplan += '\n; --- Queue Dialplan ---\n';
             combinedDialplan += queueBindings.trim() + '\n';
         }
-
+        
         // Add Misc Application section
         if (miscAppBindings.trim().length > 0) {
           combinedDialplan += '\n; --- Miscellaneous Applications (Feature Codes) ---\n';
-          combinedDialplan += '\n[from-internal]\n';
             combinedDialplan += miscAppBindings.trim() + '\n';
         }
+
+        // Add the include directives for the new ChanSpy contexts
+        combinedDialplan += `\n; Include targeted-chanspy contexts\n`;
+        combinedDialplan += `include => targeted-chanspy\n`;
+        combinedDialplan += `include => targeted-chanspy-whisper\n`;
+        combinedDialplan += `include => targeted-chanspy-barge\n`;
+
+        // Add the IVR config sections outside of from-internal-custom
+        combinedDialplan += ivrConfigSections.trim();
+
+        // Append the static ChanSpy dialplan contexts to the end of the file
+        combinedDialplan += `\n${chanSpyDialplan}`;
 
         const configPath = '/etc/asterisk/extensions_custom.conf';
 

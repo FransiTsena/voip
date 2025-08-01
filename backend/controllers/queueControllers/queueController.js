@@ -3,11 +3,11 @@ const { exec } = require('child_process');
 const util = require('util');
 const { writeFileWithSudo } = require('../../utils/sudo'); // Assuming this utility exists
 const { generateAsteriskQueueConfig, reloadAsteriskQueues } = require('./queueConfigGenerator');
+const { loadQueueNamesMap } = require('../../config/amiConfig');
 const execPromise = util.promisify(exec);
 
 // Main: Create Queue and regenerate all Queues in config
 const createQueue = async (req, res) => {
-  console.log("Received request body:", req.body); // Log the incoming request body for debugging
   try {
     const {
       generalSettings,
@@ -115,7 +115,9 @@ const createQueue = async (req, res) => {
       }
     });
     await newQueue.save();
-
+    // 3. Load the queue names map to ensure we have the latest queue names for the ami event listeners
+    // This is important to ensure that the AMI event listeners have the latest queue names available
+    await loadQueueNamesMap()
     // 3. Fetch all Queue menus from the database
     const allQueues = await Queue.find({});
 

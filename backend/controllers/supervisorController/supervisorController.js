@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 // Helper function to generate JWT
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_COOKIE_EXPIRES_IN,
+    expiresIn: '7d', // Token expires in 7 days
   });
 };
 
@@ -14,10 +14,7 @@ const createSendToken = (user, statusCode, res) => {
   const token = signToken(user._id);
 
   const cookieOptions = {
-    expires: new Date(
-      Date.now() +
-        parseInt(process.env.JWT_COOKIE_EXPIRES_IN) * 24 * 60 * 60 * 1000
-    ),
+    expiresIn:'7d',
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'Lax',
@@ -232,18 +229,16 @@ const logoutSupervisor = (req, res) => {
 const protect = async (req, res, next) => {
   try {
     let token;
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      token = req.headers.authorization.split(' ')[1];
-    } else if (req.cookies.auth_sup) {
+    if (req.cookies.auth_sup) {
       token = req.cookies.auth_sup;
     }
-
+    console.log('Token:', token);   
     if (!token) {
       return res.status(401).json({
         status: 'fail',
         message: 'You are not logged in! Please log in to get access.',
       });
-    }
+    }   
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
@@ -281,7 +276,6 @@ const protect = async (req, res, next) => {
 
 const checkAuth = async (req, res) => {
   try {
-    // req.user is set by protect middleware
     res.status(200).json({
       status: 'success',
       data: {
