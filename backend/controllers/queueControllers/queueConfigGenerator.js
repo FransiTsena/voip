@@ -7,7 +7,7 @@ const generateAsteriskQueueConfig = (queue) => {
   const capacity = queue.capacityOptions;
 
   // Start with the queue context header, using queueId from the schema
-  let config = `\n[${queue.queueId}] ; Queue Name: ${queue.name}\n`;
+  let config = `\n[${queue.queueId}]\n`;
 
   // --- General Settings (using top-level fields from schema where applicable, or nested for more specific ones) ---
   if (settings) {
@@ -19,14 +19,14 @@ const generateAsteriskQueueConfig = (queue) => {
     config += `leavewhenempty=${settings.leaveWhenEmpty || 'no'}\n`;
     config += `maxlen=${settings.maxLen || 0}\n`;
     config += `musicclass=${settings.musicClass || 'default'}\n`;
-    config += `queue-youarenext=${settings.queueYouAreNext || 'queue-youarenext'}\n`;
-    config += `queue-thereare=${settings.queueThereAre || 'queue-thereare'}\n`;
-    config += `queue-callswaiting=${settings.queueCallsWaiting || 'queue-callswaiting'}\n`;
-    config += `queue-holdtime=${settings.queueHoldTime || 'queue-holdtime'}\n`;
-    config += `queue-minutes=${settings.queueMinutes || 'queue-minutes'}\n`;
-    config += `queue-seconds=${settings.queueSeconds || 'queue-seconds'}\n`;
-    config += `queue-thankyou=${settings.queueThankYou || 'queue-thankyou'}\n`;
-    config += `queue-callerannounce=${settings.queueCallerAnnounce || ''}\n`;
+    // config += `queue-youarenext=${settings.queueYouAreNext || 'queue-youarenext'}\n`;
+    // config += `queue-thereare=${settings.queueThereAre || 'queue-thereare'}\n`;
+    // config += `queue-callswaiting=${settings.queueCallsWaiting || 'queue-callswaiting'}\n`;
+    // config += `queue-holdtime=${settings.queueHoldTime || 'queue-holdtime'}\n`;
+    // config += `queue-minutes=${settings.queueMinutes || 'queue-minutes'}\n`;
+    // config += `queue-seconds=${settings.queueSeconds || 'queue-seconds'}\n`;
+    // config += `queue-thankyou=${settings.queueThankYou || 'queue-thankyou'}\n`;
+    // config += `queue-callerannounce=${settings.queueCallerAnnounce || ''}\n`;
     config += `queue-reporthold=${settings.queueReportHold || 'no'}\n`;
     config += `announce-position=${settings.announcePosition || 'yes'}\n`;
     config += `announce-round-seconds=${settings.announceRoundSeconds || 0}\n`;

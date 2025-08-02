@@ -52,7 +52,7 @@ const generateIvrDialplan = (allIVRs, allRecordings) => {
     // Check if it's a Queue ID (e.g., 'queue_1001')
     if (destinationValue.startsWith('queue_')) {
       const targetQueueId = destinationValue.substring(6);
-      return `Queue(${targetQueueId})`;
+      return `Goto(ext-queues-custom,${targetQueueId},1)`;
     }
     // Default to a direct extension in from-internal context
     return `Goto(from-internal,${destinationValue},1)`;
@@ -154,16 +154,44 @@ const generateIvrDialplan = (allIVRs, allRecordings) => {
   return { ivrConfigSections, ivrBindings };
 };
 
-// Helper to generate Asterisk dialplan for Queue bindings
 const generateQueueDialplan = (allQueues) => {
-    let queueBindings = '';
+    let queueBindings = '[from-internal]\n';
+    
+    // Generate [from-internal-custom] for routing to queues
     allQueues.forEach(queue => {
         queueBindings += `exten => ${queue.queueId},1,NoOp(Route to Queue: ${queue.name} - ID: ${queue.queueId})\n`;
-        queueBindings += `same => n,Queue(${queue.queueId})\n`;
+        queueBindings += `same => n,Goto(ext-queues-custom,${queue.queueId},1)\n`;
         queueBindings += `same => n,Hangup()\n`;
     });
+
+    // Generate [ext-queues-custom] for queue processing
+    queueBindings += '\n[ext-queues-custom]\n';
+    allQueues.forEach(queue => {
+        const timeout = queue.timeout || 30;
+        const failoverExt = queue.failoverExt || '1003';
+
+        queueBindings += `exten => ${queue.queueId},1,NoOp(Processing Custom Queue: ${queue.name} - ID: ${queue.queueId})\n`;
+        queueBindings += `same => n,Gosub(macro-user-callerid,s,1())\n`;
+        queueBindings += `same => n,Answer\n`;
+        queueBindings += `same => n,Set(__FROMQUEUEEXTEN=$\{CALLERID(number)\})\n`;
+        queueBindings += `same => n,Gosub(macro-blkvm-set,s,1(reset))\n`;
+        queueBindings += `same => n,ExecIf($["$\{REGEX("(M\\(auto-blkvm\\))" $\{DIAL_OPTIONS\})\}" != "1"]?Set(_DIAL_OPTIONS=$\{DIAL_OPTIONS\}U(macro-auto-blkvm)))\n`;
+        queueBindings += `same => n,Set(__NODEST=$\{EXTEN\})\n`;
+        queueBindings += `same => n,Set(__MOHCLASS=default)\n`;
+        queueBindings += `same => n,ExecIf($["$\{MOHCLASS\}"!=""]?Set(CHANNEL(musicclass)=$\{MOHCLASS\}))\n`;
+        queueBindings += `same => n,Set(QUEUEJOINTIME=$\{EPOCH\})\n`;
+        queueBindings += `same => n,Gosub(sub-record-check,s,1(q,${queue.queueId},dontcare))\n`;
+        queueBindings += `same => n,QueueLog(${queue.queueId},$\{UNIQUEID\},NONE,DID,$\{FROM_DID\})\n`;
+        queueBindings += `same => n,Queue(${queue.queueId},t,,,${timeout})\n`;
+        queueBindings += `same => n,Gosub(macro-blkvm-clr,s,1())\n`;
+        queueBindings += `same => n,Gosub(sub-record-cancel,s,1())\n`;
+        queueBindings += `same => n,Set(__NODEST=)\n`;
+        queueBindings += `same => n,Goto(from-did-direct,${failoverExt},1)\n`;
+    });
+
     return queueBindings;
 };
+
 
 // Helper to generate Asterisk dialplan for Agent extensions
 const generateAgentDialplan = (allAgents) => {

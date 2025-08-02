@@ -1,3 +1,4 @@
+const { loadQueueNamesMap } = require('../../config/amiConfig');
 const Queue = require('../../models/queue');
 const { writeFileWithSudo } = require('../../utils/sudo');
 const { generateAsteriskQueueConfig, reloadAsteriskQueues } = require('./queueConfigGenerator');
@@ -38,7 +39,7 @@ const updateQueue = async (req, res) => {
     if (!updatedQueue) {
       return res.status(404).json({ status: 404, error: 'Queue not found' });
     }
-
+        await loadQueueNamesMap();
     // After update, regenerate config for all queues
     const allQueues = await Queue.find({});
     let combinedAsteriskConfig = '';

@@ -1,4 +1,5 @@
 // /ami/handler.js (Example file path)
+const { TfiControlShuffle } = require("react-icons/tfi");
 const CallLog = require("../models/callLog.js");
 const Queue = require("../models/queue.js");
 
@@ -19,7 +20,7 @@ const state = {
   activeRinging: {}, // Tracks calls that are currently ringing but not yet answered
   queueData: {},     // Stores parameters for each queue
   queueMembers: {},  // Stores members of each queue
-  queueCallers: {},  // Stores callers waiting in each queue
+  queueCallers: [],  // Stores callers waiting in each queue
   endpointList: [],  // Temporarily holds endpoint data during collection
 };
 
@@ -47,17 +48,22 @@ async function updateCallLog(linkedId, updateData, options = {}) {
  * @param {object} io - The Socket.IO server instance.
  */
 function emitQueueCallersStatus(io) {
-  const data = Object.entries(state.queueCallers).reduce(
-    (acc, [queue, callers]) => {
-      acc[queue] = callers.map((c) => ({
-        ...c,
-        waitTime: Math.floor((Date.now() - c.waitStart) / 1000),
-      }));
-      return acc;
-    }, {}
-  );
-  io.emit("queueStatus", data);
+  console.log("Emitting queue callers status...");
+  console.log("Current queue callers:", state.queueCallers);
+  const flattened = state.queueCallers.map(caller => {
+    const queueName = queueNameMap[caller.queue] || caller.queue;
+    return {
+      ...caller,
+      queue: queueName,
+      waitTime: Math.floor((Date.now() - caller.waitStart) / 1000),
+    };
+  });
+  console.log("Emitting queue callers status:", flattened);
+  io.emit("queueStatus", flattened);
 }
+
+
+
 
 // --- CALL LIFECYCLE EVENT HANDLERS ---
 
@@ -240,27 +246,32 @@ function handleQueueStatusComplete(io) {
 }
 
 function handleQueueCallerJoin(event, io) {
-    const { Queue, Uniqueid, CallerIDNum, Position } = event;
-    if (!state.queueCallers[Queue]) state.queueCallers[Queue] = [];
+  console.log("Queue Mapping:", queueNameMap);
+  console.log("Queue Caller Join Event:", event);
+  const { Queue, Uniqueid, CallerIDNum, Position } = event;
 
-    const alreadyExists = state.queueCallers[Queue].some(c => c.id === Uniqueid);
-    if (!alreadyExists) {
-        state.queueCallers[Queue].push({
-            id: Uniqueid,
-            caller_id: CallerIDNum,
-            position: parseInt(Position),
-            waitStart: Date.now(),
-        });
-    }
-    emitQueueCallersStatus(io);
+  const alreadyExists = state.queueCallers.some(c => c.id === Uniqueid);
+  if (!alreadyExists) {
+    state.queueCallers.push({
+      id: Uniqueid,
+      caller_id: CallerIDNum,
+      position: parseInt(Position),
+      queue: queueNameMap[Queue] || Queue,  // Map number to name here
+      waitStart: Date.now(),
+    });
+  }
+  console.log(`📞 Caller ${CallerIDNum} joined queue ${Queue} at position ${Position}`);
+  console.log(state.queueCallers);
+  emitQueueCallersStatus(io);
 }
 
+
+
 function handleQueueCallerLeave(event, io) {
-    const { Queue, Uniqueid } = event;
-    if (state.queueCallers[Queue]) {
-        state.queueCallers[Queue] = state.queueCallers[Queue].filter(c => c.id !== Uniqueid);
-    }
-    emitQueueCallersStatus(io);
+  const { Uniqueid } = event;
+  // Filter out caller by ID from the array (ignore queue)
+  state.queueCallers = state.queueCallers.filter(c => c.id !== Uniqueid);
+  emitQueueCallersStatus(io);
 }
 
 
