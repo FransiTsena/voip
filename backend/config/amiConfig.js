@@ -316,11 +316,17 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
-  ami.on("mixmonitorstart", (event) => {
+  ami.on("MixMonitorStart", (event) => {
+    console.log("MixMonitorStart Event:", event);
+    console.log("MixMonitorStart Event:", event);
+    console.log("MixMonitorStart Event:", event);
     console.log("MixMonitorStart Event:", event);
     // Handle MixMonitorStart if needed
   });
-  ami.on("mixmonitorstop", (event) => {
+  ami.on("MixMonitorStop", (event) => {
+    console.log("MixMonitorStop Event:", event);
+    console.log("MixMonitorStop Event:", event);
+    console.log("MixMonitorStop Event:", event);
     console.log("MixMonitorStop Event:", event);
   }) 
     // Handle MixMonitorStop if needed
