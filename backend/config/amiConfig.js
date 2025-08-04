@@ -246,8 +246,8 @@ function handleQueueStatusComplete(io) {
 }
 
 function handleQueueCallerJoin(event, io) {
-  console.log("Queue Mapping:", queueNameMap);
-  console.log("Queue Caller Join Event:", event);
+  // console.log("Queue Mapping:", queueNameMap);
+  // console.log("Queue Caller Join Event:", event);
   const { Queue, Uniqueid, CallerIDNum, Position } = event;
 
   const alreadyExists = state.queueCallers.some(c => c.id === Uniqueid);
@@ -261,7 +261,7 @@ function handleQueueCallerJoin(event, io) {
     });
   }
   console.log(`📞 Caller ${CallerIDNum} joined queue ${Queue} at position ${Position}`);
-  console.log(state.queueCallers);
+  // console.log(state.queueCallers);
   emitQueueCallersStatus(io);
 }
 
@@ -316,6 +316,14 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
+  ami.on("mixmonitorstart", (event) => {
+    console.log("MixMonitorStart Event:", event);
+    // Handle MixMonitorStart if needed
+  });
+  ami.on("mixmonitorstop", (event) => {
+    console.log("MixMonitorStop Event:", event);
+  }) 
+    // Handle MixMonitorStop if needed
 
   // Queue Events
 //   ami.on("QueueEntry",(event)=>{

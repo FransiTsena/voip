@@ -167,27 +167,33 @@ const generateQueueDialplan = (allQueues) => {
     // Generate [ext-queues-custom] for queue processing
     queueBindings += '\n[ext-queues-custom]\n';
     allQueues.forEach(queue => {
-        const timeout = queue.timeout || 30;
-        const failoverExt = queue.failoverExt || '1003';
+    const timeout = queue.timeout || 30;
+    const failoverExt = queue.failoverExt || '1003';
+    const callRecording = queue.generalSettings?.callRecording || 'dontcare';
+    console.log(`Call Recording Setting: ${callRecording}`);
 
-        queueBindings += `exten => ${queue.queueId},1,NoOp(Processing Custom Queue: ${queue.name} - ID: ${queue.queueId})\n`;
-        queueBindings += `same => n,Gosub(macro-user-callerid,s,1())\n`;
-        queueBindings += `same => n,Answer\n`;
-        queueBindings += `same => n,Set(__FROMQUEUEEXTEN=$\{CALLERID(number)\})\n`;
-        queueBindings += `same => n,Gosub(macro-blkvm-set,s,1(reset))\n`;
-        queueBindings += `same => n,ExecIf($["$\{REGEX("(M\\(auto-blkvm\\))" $\{DIAL_OPTIONS\})\}" != "1"]?Set(_DIAL_OPTIONS=$\{DIAL_OPTIONS\}U(macro-auto-blkvm)))\n`;
-        queueBindings += `same => n,Set(__NODEST=$\{EXTEN\})\n`;
-        queueBindings += `same => n,Set(__MOHCLASS=default)\n`;
-        queueBindings += `same => n,ExecIf($["$\{MOHCLASS\}"!=""]?Set(CHANNEL(musicclass)=$\{MOHCLASS\}))\n`;
-        queueBindings += `same => n,Set(QUEUEJOINTIME=$\{EPOCH\})\n`;
-        queueBindings += `same => n,Gosub(sub-record-check,s,1(q,${queue.queueId},dontcare))\n`;
-        queueBindings += `same => n,QueueLog(${queue.queueId},$\{UNIQUEID\},NONE,DID,$\{FROM_DID\})\n`;
-        queueBindings += `same => n,Queue(${queue.queueId},t,,,${timeout})\n`;
-        queueBindings += `same => n,Gosub(macro-blkvm-clr,s,1())\n`;
-        queueBindings += `same => n,Gosub(sub-record-cancel,s,1())\n`;
-        queueBindings += `same => n,Set(__NODEST=)\n`;
-        queueBindings += `same => n,Goto(from-did-direct,${failoverExt},1)\n`;
-    });
+    queueBindings += `exten => ${queue.queueId},1,NoOp(Processing Custom Queue: ${queue.name} - ID: ${queue.queueId})\n`;
+    queueBindings += `same => n,Gosub(macro-user-callerid,s,1())\n`;
+    queueBindings += `same => n,Answer\n`;
+    queueBindings += `same => n,Set(__FROMQUEUEEXTEN=\${CALLERID(number)})\n`;
+    queueBindings += `same => n,Gosub(macro-blkvm-set,s,1(reset))\n`;
+    queueBindings += `same => n,ExecIf($["\${REGEX("(M\\(auto-blkvm\\))" \${DIAL_OPTIONS})}" != "1"]?Set(_DIAL_OPTIONS=\${DIAL_OPTIONS}U(macro-auto-blkvm)))\n`;
+    queueBindings += `same => n,Set(__NODEST=\${EXTEN})\n`;
+    queueBindings += `same => n,Set(__MOHCLASS=default)\n`;
+    queueBindings += `same => n,ExecIf($["\${MOHCLASS}"!=""]?Set(CHANNEL(musicclass)=\${MOHCLASS}))\n`;
+    queueBindings += `same => n,Set(QUEUEJOINTIME=\${EPOCH})\n`;
+
+    // Dynamically set call recording behavior
+    queueBindings += `same => n,Gosub(sub-record-check,s,1(q,${queue.queueId},${callRecording}))\n`;
+
+    queueBindings += `same => n,QueueLog(${queue.queueId},\${UNIQUEID},NONE,DID,\${FROM_DID})\n`;
+    queueBindings += `same => n,Queue(${queue.queueId},t,,,${timeout})\n`;
+    queueBindings += `same => n,Gosub(macro-blkvm-clr,s,1())\n`;
+    queueBindings += `same => n,Gosub(sub-record-cancel,s,1())\n`;
+    queueBindings += `same => n,Set(__NODEST=)\n`;
+    queueBindings += `same => n,Goto(from-did-direct,${failoverExt},1)\n`;
+});
+
 
     return queueBindings;
 };
@@ -208,10 +214,7 @@ const generateAgentDialplan = (allAgents) => {
 
 // MODIFIED: Helper to generate Asterisk dialplan for Miscellaneous Applications from the database
 const generateMiscApplicationDialplan = (allMiscApps, allRecordings) => {
-  console.log(allMiscApps);
-  console.log(allMiscApps);
-  console.log(allMiscApps);
-  console.log(allMiscApps);
+
     let miscAppBindings = '';
     allMiscApps.forEach(app => {
         const destinationType = app.destination.type;
