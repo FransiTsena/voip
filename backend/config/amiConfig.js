@@ -2,9 +2,16 @@
 const { TfiControlShuffle } = require("react-icons/tfi");
 const CallLog = require("../models/callLog.js");
 const Queue = require("../models/queue.js");
+const fs = require("fs");
+const path = require("path");
 
+const recordingsBasePath = "/var/spool/asterisk/monitor/insaRecordings";
+
+if (!fs.existsSync(recordingsBasePath)) {
+  fs.mkdirSync(recordingsBasePath, { recursive: true });
+}
 let queueNameMap = {};
- async function loadQueueNamesMap() {
+async function loadQueueNamesMap() {
   const queues = await Queue.find({}, { queueId: 1, name: 1 }).lean();
   const map = {};
   queues.forEach(q => {
@@ -15,14 +22,47 @@ let queueNameMap = {};
 
 // Centralized in-memory state for the application
 const state = {
-
   ongoingCalls: {},  // Tracks active, answered calls by linkedId
   activeRinging: {}, // Tracks calls that are currently ringing but not yet answered
   queueData: {},     // Stores parameters for each queue
   queueMembers: {},  // Stores members of each queue
   queueCallers: [],  // Stores callers waiting in each queue
   endpointList: [],  // Temporarily holds endpoint data during collection
+  agentShifts: {},   // Tracks current shiftId for each agent
 };
+// --- AGENT SHIFT TRACKING ---
+const Shift = require('../models/shiftModel');
+
+async function startAgentShift(agentId) {
+  try {
+    // If a shift is already active, do not start another
+    if (state.agentShifts[agentId]) return;
+    const shift = new Shift({ agentId, startTime: new Date() });
+    const createdShift = await shift.save();
+    state.agentShifts[agentId] = createdShift._id;
+    console.log(`Shift started for agent ${agentId}: ${createdShift._id}`);
+  } catch (err) {
+    console.error('Error starting agent shift:', err.message);
+  }
+}
+
+async function endAgentShift(agentId) {
+  try {
+    const shiftId = state.agentShifts[agentId];
+    if (shiftId) {
+      const shift = await Shift.findById(shiftId);
+      if (shift && !shift.endTime) {
+        shift.endTime = new Date();
+        shift.duration = (shift.endTime - shift.startTime) / 1000;
+        await shift.save();
+        console.log(`Shift ended for agent ${agentId}: ${shiftId}`);
+      }
+      delete state.agentShifts[agentId];
+    }
+  } catch (err) {
+    console.error('Error ending agent shift:', err.message);
+  }
+}
 
 // --- HELPER FUNCTIONS ---
 
@@ -114,34 +154,85 @@ const handleQueueStatus = (event) => {
  * @param {object} event - The AMI event object.
  * @param {object} io - The Socket.IO server instance.
  */
-function handleBridgeEnter(event, io) {
-  const { Linkedid, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName, Channel1, Channel2 } = event;
+function handleBridgeEnter(event, io, ami) {
+  const {
+    Linkedid,
+    CallerIDNum,
+    CallerIDName,
+    ConnectedLineNum,
+    ConnectedLineName,
+    Channel
+  } = event;
 
-  // ... (check for state.activeRinging[Linkedid]) ...
-
+  // Store the call info
   state.ongoingCalls[Linkedid] = {
-    caller: CallerIDNum,       // '007'
-    callerName: CallerIDName,   // 'Jhon whick'
-    agent: ConnectedLineNum,    // '1001'
-    agentName: ConnectedLineName, // 'Agent 1' (this is a good addition for the UI!)
+    caller: CallerIDNum,
+    callerName: CallerIDName,
+    agent: ConnectedLineNum,
+    agentName: ConnectedLineName,
     state: "Talking",
-    startTime: Date.now(),      // Current timestamp when the bridge occurred
-    channels: [Channel1, Channel2].filter(Boolean), // Will store relevant channels
+    startTime: Date.now(),
+    channels: Channel,
   };
 
-  // ... (delete from activeRinging) ...
+  // 🔥 Build a safe filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const fileName = `insa-${CallerIDNum}-${ConnectedLineNum}-${timestamp}.wav`;
+  const filePath = path.join(recordingsBasePath, fileName);
+  console.log("Recording file path:", filePath);
+  console.log("channel1", Channel);
+  console.log("channel2", Channel);
+  // 🧠 Trigger MixMonitor via AMI
+  if (Channel) {
+    ami.action(
+      {
+        Action: "MixMonitor",
+        Channel: Channel,
+        File: filePath,
+        Options: "a", // Record both directions
+      },
+      (err, res) => {
+        if (err) {
+          console.error("❌ Failed to start recording:", err);
+        } else {
+          console.log(`✅ Recording started: ${filePath}`);
+        }
+      }
+    );
+  }
 
-  // updateCallLog(Linkedid, {
-  //   answerTime: new Date(),
-  //   status: "answered",
-  //   callee: ConnectedLineNum,    // '1001'
-  //   calleeName: ConnectedLineName, // 'Agent 1'
-  //   $addToSet: { channels: { $each: [Channel1, Channel2].filter(Boolean) } },
-  // });
-  // console.log(on)
-  // ⭐ This sends the updated list of ongoing calls to your frontend ⭐
+  // 💡 Send updated state to frontend
   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
 }
+
+// function handleBridgeEnter(event, io) {
+//   const { Linkedid, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName, Channel1, Channel2 } = event;
+
+//   // ... (check for state.activeRinging[Linkedid]) ...
+
+//   state.ongoingCalls[Linkedid] = {
+//     caller: CallerIDNum,       // '007'
+//     callerName: CallerIDName,   // 'Jhon whick'
+//     agent: ConnectedLineNum,    // '1001'
+//     agentName: ConnectedLineName, // 'Agent 1' (this is a good addition for the UI!)
+//     state: "Talking",
+//     startTime: Date.now(),      // Current timestamp when the bridge occurred
+//     channels: [Channel1, Channel2].filter(Boolean), // Will store relevant channels
+//   };
+
+//   // ... (delete from activeRinging) ...
+
+//   // updateCallLog(Linkedid, {
+//   //   answerTime: new Date(),
+//   //   status: "answered",
+//   //   callee: ConnectedLineNum,    // '1001'
+//   //   calleeName: ConnectedLineName, // 'Agent 1'
+//   //   $addToSet: { channels: { $each: [Channel1, Channel2].filter(Boolean) } },
+//   // });
+//   // console.log(on)
+//   // ⭐ This sends the updated list of ongoing calls to your frontend ⭐
+//   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+// }
 /**
  * Handles the 'Hangup' event, consolidating all end-of-call logic.
  * This is the single source of truth for terminated calls.
@@ -179,11 +270,11 @@ function handleHangup(event, io) {
         case "19": finalStatus = "unanswered"; break;
         case "21": finalStatus = "failed"; break;
       }
-      
+
       console.log(`👋 Call ${Linkedid} ended. Status: ${finalStatus}, Duration: ${duration}s`);
       io.emit("callEnded", { ...call, endTime: Date.now(), duration });
       updateCallLog(Linkedid, { endTime: new Date(), duration, status: finalStatus, hangupCause: Cause, hangupCauseTxt: CauseTxt });
-      
+
 
       //got him
       delete state.ongoingCalls[Linkedid];
@@ -241,8 +332,8 @@ function handleQueueMember(event) {
 
 
 function handleQueueStatusComplete(io) {
-    io.emit("queueUpdate", state.queueData);
-    io.emit("queueMembers", state.queueMembers);
+  io.emit("queueUpdate", state.queueData);
+  io.emit("queueMembers", state.queueMembers);
 }
 
 function handleQueueCallerJoin(event, io) {
@@ -278,25 +369,30 @@ function handleQueueCallerLeave(event, io) {
 // --- ENDPOINT & AGENT STATUS HANDLERS ---
 
 function handleEndpointList(event) {
-    state.endpointList.push(event);
+  state.endpointList.push(event);
 }
 
 function handleEndpointListComplete(io) {
-    io.emit("endpointList", state.endpointList);
-    state.endpointList = []; // Reset for the next batch
+  io.emit("endpointList", state.endpointList);
+  state.endpointList = []; // Reset for the next batch
 }
 
-function handleContactStatus(event, io) {
-    const { EndpointName, ContactStatus } = event;
-    let status = "";
-    if (ContactStatus === "Reachable") status = "online";
-    else if (ContactStatus === "Unreachable" || ContactStatus === "Removed") status = "offline";
+// Enhanced: Track agent shift on status change
+async function handleContactStatus(event, io) {
+  const { EndpointName, ContactStatus } = event;
+  let status = "";
+  if (ContactStatus === "Reachable") status = "online";
+  else if (ContactStatus === "Unreachable" || ContactStatus === "Removed") status = "offline";
 
-    if (status) {
-        // Here you would typically update an Agent/User model in your database
-        // For now, we just emit the event
-        io.emit("agentStatusUpdate", { agentId: EndpointName, status });
+  if (status) {
+    io.emit("agentStatusUpdate", { agentId: EndpointName, status });
+    // Start/end shift based on status
+    if (status === "online") {
+      await startAgentShift(EndpointName);
+    } else if (status === "offline") {
+      await endAgentShift(EndpointName);
     }
+  }
 }
 
 // --- MAIN SETUP FUNCTION ---
@@ -312,7 +408,7 @@ async function setupAmiEventListeners(ami, io) {
   await loadQueueNamesMap();
   // -- Register all event handlers --
   ami.on("DialBegin", (event) => handleDialBegin(event, io));
-  ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io));
+  ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io, ami));
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
@@ -328,15 +424,15 @@ async function setupAmiEventListeners(ami, io) {
     console.log("MixMonitorStop Event:", event);
     console.log("MixMonitorStop Event:", event);
     console.log("MixMonitorStop Event:", event);
-  }) 
-    // Handle MixMonitorStop if needed
+  })
+  // Handle MixMonitorStop if needed
 
   // Queue Events
-//   ami.on("QueueEntry",(event)=>{
-//     console
-// .log("QueueEntry Event received");
-//     console.log("QueueEntry Event received", event);  
-//   })
+  //   ami.on("QueueEntry",(event)=>{
+  //     console
+  // .log("QueueEntry Event received");
+  //     console.log("QueueEntry Event received", event);  
+  //   })
   ami.on("QueueParams", handleQueueParams);
   ami.on("QueueMember", handleQueueMember);
   ami.on("QueueStatus", handleQueueStatus)
@@ -349,10 +445,10 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("EndpointList", handleEndpointList);
   ami.on("EndpointListComplete", () => handleEndpointListComplete(io));
   ami.on("ContactStatus", (event) => handleContactStatus(event, io));
-  
+
   // NOTE: The generic ami.on('event', ...) listener has been REMOVED for performance.
   // Its logic has been merged into the specific 'Hangup' handler.
-  
+
   // -- Start periodic polling actions --
   setInterval(() => ami.action({ Action: "QueueStatus" }), 2000);
   setInterval(() => ami.action({ Action: "PJSIPShowEndpoints" }), 5000);
@@ -364,4 +460,4 @@ async function setupAmiEventListeners(ami, io) {
   // This avoids adding duplicate listeners.
 }
 
-module.exports = { setupAmiEventListeners, state,loadQueueNamesMap };
+module.exports = { setupAmiEventListeners, state, loadQueueNamesMap };

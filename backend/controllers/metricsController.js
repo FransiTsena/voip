@@ -1,5 +1,6 @@
 const Ticket = require('../models/ticketModel');
 const CallLog = require('../models/callLog');
+const Agent = require('../models/agent');
 const asyncHandler = require('express-async-handler');
 
 // @desc    Get agent metrics
@@ -11,10 +12,19 @@ const Shift = require('../models/shiftModel');
 const getAgentMetrics = asyncHandler(async (req, res) => {
   const { agentId } = req.params;
 
+
+
   // Get today's date range
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+
+  // // Debug logging
+  // console.log('Agent Metrics Debug:');
+  // console.log('agentId:', agentId);
+  // console.log('startOfDay:', startOfDay.toISOString());
+  // console.log('endOfDay:', endOfDay.toISOString());
+  const agent = await Agent.findById(agentId);
 
   // Tickets resolved today
   const ticketsResolved = await Ticket.countDocuments({
@@ -25,19 +35,28 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
 
   // Calls handled today
   const callsHandled = await CallLog.countDocuments({
-    agentId,
+    $or: [
+      { callee: agent.username || agentId },
+      { callerId: agent.username || agentId }
+    ],
     startTime: { $gte: startOfDay, $lt: endOfDay },
   });
 
   // Total calls today (all statuses)
   const totalCalls = await CallLog.countDocuments({
-    agentId,
+    $or: [
+      { callee: agent.username || agentId },
+      { callerId: agent.username || agentId }
+    ],
     startTime: { $gte: startOfDay, $lt: endOfDay },
   });
 
   // Missed calls today
   const missedCalls = await CallLog.countDocuments({
-    agentId,
+    $or: [
+      { callee: agent.username || agentId },
+      { callerId: agent.username || agentId }
+    ],
     status: 'missed',
     startTime: { $gte: startOfDay, $lt: endOfDay },
   });
@@ -46,7 +65,10 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
   const avgDurationAgg = await CallLog.aggregate([
     {
       $match: {
-        agentId: typeof agentId === 'string' ? agentId : agentId,
+        $or: [
+          { callee: agent.username || agentId },
+          { callerId: agent.username || agentId }
+        ],
         status: 'answered',
         startTime: { $gte: startOfDay, $lt: endOfDay },
         duration: { $exists: true, $ne: null }

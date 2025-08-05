@@ -396,12 +396,13 @@ const getAllAgentCallStatus = asyncHandler(async (req, res) => {
 });
 
 
-// Check if extension exists by ID param (for /agents/:id)
-const checkExtensionExists = asyncHandler(async (req, res) => {
-  const extension = req.params.id || req.query.extension;
-  if (!extension) return errorResponse(res, 400, 'extension is required.');
-  const exists = await Extension.exists({ extension });
-  res.json({ exists: !!exists });
+// Get agent call logic by ID or extension
+const getAgentCallLogById = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  if (!id) return errorResponse(res, 400, 'ID is required.');
+  const agent = await Extension.findById(id);
+  if (!agent) return errorResponse(res, 404, 'Agent not found.');
+  res.json(agent);
 });
 
 // Get total count of agents
@@ -428,7 +429,7 @@ module.exports = {
   getAllAgents,
   deleteSingleAgents,
   getAllAgentCallStatus,
-  checkExtensionExists,
+  getAgentCallLogById,
   getAgentCount,
   getAgentsFromDatabase,
   getAgentByNumber

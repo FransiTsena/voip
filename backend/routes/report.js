@@ -2,13 +2,6 @@ const express = require('express');
 const router = express.Router();
 const reportController = require('../controllers/report_controller');
 const agentsController = require('../controllers/agents');
-const {
-    createExtension,
-    getAllExtensions,
-    getExtensionByUserExtension,
-    updateExtension,
-    getAgentById,
-} = require('../controllers/agentControllers/agentController');
 const queueController = require('../controllers/queue');
 
 
@@ -20,8 +13,6 @@ router.get('/agents/all', agentsController.getAllAgents);
 router.get('/agents/call-status', agentsController.getAllAgentCallStatus);
 // GET /report/agents/count
 router.get('/agents/count', agentsController.getAgentCount);
-// GET /report/agents/:id
-router.get('/agents/:id', agentsController.checkExtensionExists);
 
 // QUEUE REPORT ROUTES
 // GET /report/queues/all
