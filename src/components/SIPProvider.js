@@ -36,7 +36,8 @@ export const SIPProvider = ({ children }) => {
         fetchSipPassword();
     }, [SIP_USER]);
     const SIP_SERVER = process.env.SERVER_IP || '10.42.0.1';
-    const SIP_WS_SERVER = `ws://${SIP_SERVER}:8088/ws`;
+    const SIP_PORT = process.env.SIP_SERVER_PORT || 8088;
+    const SIP_WS_SERVER = `ws://${SIP_SERVER}:${SIP_PORT}/ws`;
     const PC_CONFIG = {
         iceServers: [
         ],
@@ -51,9 +52,10 @@ export const SIPProvider = ({ children }) => {
     const [timerActive, setTimerActive] = useState(false);
     const [error, setError] = useState('');
     const [iceStatus, setIceStatus] = useState('');
-    const [agentStatus, setAgentStatus] = useState('Available');
+    const [agentStatus, setAgentStatusState] = useState('Available');
     const uaRef = useRef(null);
     const remoteAudioRef = useRef(null);
+    const ringtoneRef = useRef(null);
     const timerRef = useRef(null);
 
     useEffect(() => {
@@ -112,15 +114,33 @@ export const SIPProvider = ({ children }) => {
                 setRegistered(false);
             });
             ua.on('newRTCSession', ({ session }) => {
+                console.log('newRTCSession event:', session.direction, session);
                 if (session.direction === 'incoming') {
-                    if (agentStatus === 'Paused') {
+                    if (agentStatus === 'Paused' || agentStatus === 'Do Not Disturb') {
                         session.terminate({ status_code: 486, reason_phrase: 'Busy Here' });
                         return;
                     }
                     setIncomingCall(session);
                     setStatus(`Incoming call from ${session.remote_identity.uri.user}`);
+                    console.log('setIncomingCall called:', session);
+                    // Play ringtone
+                    if (ringtoneRef.current) {
+                        ringtoneRef.current.currentTime = 0;
+                        ringtoneRef.current.play().catch(() => { });
+                    }
+                    // Stop ringtone on answer, reject, or end
+                    session.on('accepted', () => {
+                        if (ringtoneRef.current) ringtoneRef.current.pause();
+                    });
+                    session.on('ended', () => {
+                        if (ringtoneRef.current) ringtoneRef.current.pause();
+                    });
+                    session.on('failed', () => {
+                        if (ringtoneRef.current) ringtoneRef.current.pause();
+                    });
                 } else {
                     setCallSession(session);
+                    console.log('setCallSession called:', session);
                 }
                 session.on('peerconnection', ({ peerconnection }) => {
                     peerconnection.ontrack = (event) => {
@@ -148,6 +168,41 @@ export const SIPProvider = ({ children }) => {
             ua.start();
         } catch (e) {
             setError('Failed to initialize SIP client.');
+        }
+    };
+
+    // Unregister SIP client
+    const stopUA = () => {
+        if (uaRef.current) {
+            uaRef.current.stop();
+            uaRef.current = null;
+            setRegistered(false);
+            setStatus('Disconnected');
+        }
+    };
+
+    // Notify backend of agent status change
+    const notifyAgentStatus = async (status) => {
+        try {
+            await fetch(`${baseUrl}/agent/status`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            });
+        } catch (err) {
+            // Optionally handle error
+        }
+    };
+
+    // Enhanced setAgentStatus
+    const setAgentStatus = async (newStatus) => {
+        setAgentStatusState(newStatus);
+        await notifyAgentStatus(newStatus);
+        if (newStatus === 'Paused' || newStatus === 'Do Not Disturb') {
+            stopUA();
+        } else if (newStatus === 'Available') {
+            startUA();
         }
     };
 
@@ -213,12 +268,10 @@ export const SIPProvider = ({ children }) => {
         }
     };
 
-    const togglePause = () => {
-        setAgentStatus(prev => {
-            const next = prev === 'Available' ? 'Paused' : 'Available';
-            setStatus(next === 'Paused' ? "Paused (won't receive calls)" : 'Registered & Idle');
-            return next;
-        });
+    const togglePause = async () => {
+        const next = agentStatus === 'Available' ? 'Paused' : 'Available';
+        await setAgentStatus(next);
+        setStatus(next === 'Paused' ? "Paused (won't receive calls)" : 'Registered & Idle');
     };
 
     const formatTime = (sec) => {
@@ -303,10 +356,64 @@ export const SIPProvider = ({ children }) => {
         }
     };
 
+    // Hold call
+    const holdCall = (session) => {
+        if (session && typeof session.hold === 'function') {
+            try {
+                session.hold();
+            } catch (err) {
+                setError('Failed to hold call: ' + (err?.message || err));
+            }
+        } else {
+            setError('Hold not supported for this session.');
+        }
+    };
+
+    // Unhold call
+    const unholdCall = (session) => {
+        if (session && typeof session.unhold === 'function') {
+            try {
+                session.unhold();
+            } catch (err) {
+                setError('Failed to unhold call: ' + (err?.message || err));
+            }
+        } else {
+            setError('Unhold not supported for this session.');
+        }
+    };
+
+    // Mute call
+    const muteCall = (session) => {
+        if (session && typeof session.mute === 'function') {
+            try {
+                session.mute({ audio: true });
+            } catch (err) {
+                setError('Failed to mute call: ' + (err?.message || err));
+            }
+        } else {
+            setError('Mute not supported for this session.');
+        }
+    };
+
+    // Unmute call
+    const unmuteCall = (session) => {
+        if (session && typeof session.unmute === 'function') {
+            try {
+                session.unmute({ audio: true });
+            } catch (err) {
+                setError('Failed to unmute call: ' + (err?.message || err));
+            }
+        } else {
+            setError('Unmute not supported for this session.');
+        }
+    };
+
     return (
-        <SIPContext.Provider value={{ status, registered, callSession, incomingCall, callTimer, error, iceStatus, agentStatus, hangup, answer, togglePause, formatTime, remoteAudioRef, makeCall, transferCall }}>
+        <SIPContext.Provider value={{ status, registered, callSession, incomingCall, callTimer, error, iceStatus, agentStatus, setAgentStatus, hangup, answer, togglePause, formatTime, remoteAudioRef, makeCall, transferCall, holdCall, unholdCall, muteCall, unmuteCall }}>
             {children}
             <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
+            {/* Ringtone audio element. Uses local file in public/ringtones */}
+            <audio ref={ringtoneRef} src="/ringtones/ringtone.mp3" preload="auto" />
         </SIPContext.Provider>
     );
 };

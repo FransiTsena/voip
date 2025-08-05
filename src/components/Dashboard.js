@@ -20,7 +20,6 @@ const Dashboard = () => {
   const agent = useStore(state => state.agent);
   const logout = useStore(state => state.logout);
   const [redirect, setRedirect] = useState(false);
-  const [showKeypad, setShowKeypad] = useState(false);
   const [dialNumber, setDialNumber] = useState("");
   const [search, setSearch] = useState("");
   const [agentStats, setAgentStats] = useState(null);
@@ -28,6 +27,7 @@ const Dashboard = () => {
   const [statsError, setStatsError] = useState(null);
   const [queueWaitingReport, setQueueWaitingReport] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [showKeypad, setShowKeypad] = useState(false);
 
   useEffect(() => {
     async function loadStats() {
@@ -73,7 +73,7 @@ const Dashboard = () => {
   };
 
   const sip = useSIP() || {};
-  const { makeCall } = sip;
+  const { makeCall, agentStatus, setAgentStatus } = sip;
   const isSIPReady = typeof makeCall === 'function';
 
   if (redirect) {
@@ -83,10 +83,11 @@ const Dashboard = () => {
 
   return (
     <SIPProvider>
-      {/* Top Bar */}
-      <NavBar onLogout={handleLogout} shiftControl={<ShiftTimer />} />
+      {/* Top Bar with agent status controls */}
+      <NavBar onLogout={handleLogout} />
 
       <div className="flex h-[calc(100vh-68px)] bg-gray-100 text-gray-800">
+        {/* Agent Status Controls moved to NavBar */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         <main className="flex-1 overflow-y-auto px-8 py-6">
           <div className="max-w-5xl mx-auto flex flex-col space-y-8">
@@ -210,7 +211,24 @@ const Dashboard = () => {
         </button>
       </div>
 
-      <CallPopup />
+      <CallPopup
+        showKeypad={showKeypad}
+        setShowKeypad={setShowKeypad}
+        callSession={sip.callSession}
+        incomingCall={sip.incomingCall}
+        callTimer={sip.callTimer}
+        hangup={sip.hangup}
+        answer={sip.answer}
+        holdCall={sip.holdCall}
+        unholdCall={sip.unholdCall}
+        muteCall={sip.muteCall}
+        unmuteCall={sip.unmuteCall}
+        transferCall={sip.transferCall}
+        makeCall={sip.makeCall}
+        formatTime={sip.formatTime}
+        iceStatus={sip.iceStatus}
+        agentStatus={sip.agentStatus}
+      />
     </SIPProvider>
   );
 };
