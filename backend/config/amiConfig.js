@@ -445,11 +445,13 @@ function handleQueueCallerLeave(event, io) {
 // --- ENDPOINT & AGENT STATUS HANDLERS ---
 
 function handleEndpointList(event) {
+  // console.log(event)
   state.endpointList.push(event);
 }
 
-function handleEndpointListComplete(io) {
-  io.emit("endpointList", state.endpointList);
+function handleEndpointListComplete(event,io) {
+
+  // io.emit("endpointList", state.endpointList);
   state.endpointList = []; // Reset for the next batch
 }
 
@@ -497,6 +499,10 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
+  ami.on("BridgeCreate", (event) => {
+
+    console.log("BridgeCreate Event:", event);
+  })
   ami.on("MixMonitorStart", (event) => {
     console.log("MixMonitorStart Event:", event);
     console.log("MixMonitorStart Event:", event);
@@ -528,8 +534,9 @@ async function setupAmiEventListeners(ami, io) {
 
   // Endpoint/Agent Status Events
   ami.on("EndpointList", handleEndpointList);
-  ami.on("EndpointListComplete", () => handleEndpointListComplete(io));
+  ami.on("EndpointListComplete", (event) => handleEndpointListComplete(event, io));
   ami.on("ContactStatus", (event) => handleContactStatus(event, io));
+
 
   // NOTE: The generic ami.on('event', ...) listener has been REMOVED for performance.
   // Its logic has been merged into the specific 'Hangup' handler.

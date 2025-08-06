@@ -298,6 +298,7 @@ async function getAllAgents(req, res, next) {
 
     // Handler for EndpointList events
     const onEndpointList = (event) => {
+      console.log('[PJSIP] EndpointList event received:', event);
       console.log(event)
       endpoints.push(event);
     };
