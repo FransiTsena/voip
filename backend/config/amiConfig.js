@@ -22,42 +22,118 @@ async function loadQueueNamesMap() {
 
 // Centralized in-memory state for the application
 const state = {
-  ongoingCalls: {},  // Tracks active, answered calls by linkedId
-  activeRinging: {}, // Tracks calls that are currently ringing but not yet answered
-  queueData: {},     // Stores parameters for each queue
-  queueMembers: {},  // Stores members of each queue
-  queueCallers: [],  // Stores callers waiting in each queue
-  endpointList: [],  // Temporarily holds endpoint data during collection
-  agentShifts: {},   // Tracks current shiftId for each agent
+  ongoingCalls: {},
+  activeRinging: {},
+  queueData: {},
+  queueMembers: {},
+  queueCallers: [],
+  endpointList: [],
+  agentShifts: {},
 };
-// --- AGENT SHIFT TRACKING ---
-const Shift = require('../models/shiftModel');
 
-async function startAgentShift(agentId) {
+// On startup, load all ongoing shifts and pending ends into memory
+async function syncAgentShiftsFromDB() {
+  const ongoingShifts = await Shift.find({ endTime: null });
+  ongoingShifts.forEach(shift => {
+    if (shift.agentId && shift._id) {
+      // If shift has a pendingEndUntil, set a timer
+      if (shift.pendingEndUntil && new Date(shift.pendingEndUntil) > new Date()) {
+        const msLeft = new Date(shift.pendingEndUntil) - new Date();
+        shift._pendingEnd = setTimeout(async () => {
+          shift.endTime = new Date();
+          shift.duration = (shift.endTime - shift.startTime) / 1000;
+          await shift.save();
+          delete state.agentShifts[shift.agentId];
+        }, msLeft);
+      }
+      state.agentShifts[shift.agentId] = shift._id;
+    }
+  });
+  console.log('Agent shifts synced from DB.');
+}
+// --- AGENT SHIFT TRACKING ---
+
+const Shift = require('../models/shiftModel');
+const Agent = require('../models/agent');
+
+// Use extension number for shift monitoring
+async function startAgentShiftByExtension(extensionNumber) {
   try {
-    // If a shift is already active, do not start another
-    if (state.agentShifts[agentId]) return;
-    const shift = new Shift({ agentId, startTime: new Date() });
+    // Always check DB for any ongoing shift (no endTime)
+    // If a shift is already active in memory, resume
+    if (state.agentShifts[extensionNumber]) {
+      // Resume logic: check for pending end in DB
+      const agent = await Agent.findOne({ username: extensionNumber });
+      if (!agent) throw new Error(`Agent not found for username: ${extensionNumber}`);
+      let ongoingShift = await Shift.findOne({ agentId: agent._id, endTime: null });
+      if (ongoingShift && ongoingShift.pendingEndUntil && new Date(ongoingShift.pendingEndUntil) > new Date()) {
+        // Cancel pending end
+        ongoingShift.pendingEndUntil = null;
+        await ongoingShift.save();
+        if (ongoingShift._pendingEnd) {
+          clearTimeout(ongoingShift._pendingEnd);
+          delete ongoingShift._pendingEnd;
+        }
+        console.log(`Agent ${extensionNumber} returned within 5 min, shift resumed.`);
+      }
+      return;
+    }
+    // Find agent by username (which is the extension number)
+    const agent = await Agent.findOne({ username: extensionNumber });
+    if (!agent) throw new Error(`Agent not found for username: ${extensionNumber}`);
+    // Check for any ongoing shift in DB (no endTime)
+    let ongoingShift = await Shift.findOne({ agentId: agent._id, endTime: null });
+    if (ongoingShift) {
+      // Resume the ongoing shift
+      state.agentShifts[extensionNumber] = ongoingShift._id;
+      if (ongoingShift.pendingEndUntil && new Date(ongoingShift.pendingEndUntil) > new Date()) {
+        // Cancel pending end
+        ongoingShift.pendingEndUntil = null;
+        await ongoingShift.save();
+        if (ongoingShift._pendingEnd) {
+          clearTimeout(ongoingShift._pendingEnd);
+          delete ongoingShift._pendingEnd;
+        }
+        console.log(`Agent ${extensionNumber} returned within 5 min, shift resumed.`);
+      } else {
+        console.log(`Resumed ongoing shift for agent username ${extensionNumber}: ${ongoingShift._id}`);
+      }
+      return;
+    }
+    // Otherwise, start a new shift
+    const shift = new Shift({ agentId: agent._id, startTime: new Date() });
     const createdShift = await shift.save();
-    state.agentShifts[agentId] = createdShift._id;
-    console.log(`Shift started for agent ${agentId}: ${createdShift._id}`);
+    state.agentShifts[extensionNumber] = createdShift._id;
+    console.log(`Shift started for agent username ${extensionNumber}: ${createdShift._id}`);
   } catch (err) {
     console.error('Error starting agent shift:', err.message);
   }
 }
 
-async function endAgentShift(agentId) {
+// End agent shift and record reason
+async function endAgentShiftByExtension(extensionNumber, reason = "unknown") {
   try {
-    const shiftId = state.agentShifts[agentId];
+    const shiftId = state.agentShifts[extensionNumber];
     if (shiftId) {
       const shift = await Shift.findById(shiftId);
       if (shift && !shift.endTime) {
-        shift.endTime = new Date();
-        shift.duration = (shift.endTime - shift.startTime) / 1000;
+        // Instead of ending immediately, set a timer for 5 min
+        const pendingEndUntil = new Date(Date.now() + 5 * 60 * 1000);
+        shift.pendingEndUntil = pendingEndUntil;
         await shift.save();
-        console.log(`Shift ended for agent ${agentId}: ${shiftId}`);
+        shift._pendingEnd = setTimeout(async () => {
+          shift.endTime = new Date();
+          shift.duration = (shift.endTime - shift.startTime) / 1000;
+          shift.reason = reason;
+          shift.pendingEndUntil = null;
+          await shift.save();
+          console.log(`Shift ended for agent extension ${extensionNumber}: ${shiftId}, reason: ${reason}`);
+          delete state.agentShifts[extensionNumber];
+        }, 5 * 60 * 1000); // 5 minutes
+        console.log(`Shift for agent extension ${extensionNumber} will end in 5 min unless agent returns.`);
+      } else {
+        delete state.agentShifts[extensionNumber];
       }
-      delete state.agentShifts[agentId];
     }
   } catch (err) {
     console.error('Error ending agent shift:', err.message);
@@ -172,7 +248,7 @@ function handleBridgeEnter(event, io, ami) {
     agentName: ConnectedLineName,
     state: "Talking",
     startTime: Date.now(),
-    channels: Channel,
+    channels: [Channel],
   };
 
   // 🔥 Build a safe filename
@@ -381,16 +457,25 @@ function handleEndpointListComplete(io) {
 async function handleContactStatus(event, io) {
   const { EndpointName, ContactStatus } = event;
   let status = "";
-  if (ContactStatus === "Reachable") status = "online";
-  else if (ContactStatus === "Unreachable" || ContactStatus === "Removed") status = "offline";
+  let reason = "unknown";
+  if (ContactStatus === "Reachable") {
+    status = "online";
+    reason = "manual login";
+  } else if (ContactStatus === "Unreachable") {
+    status = "offline";
+    reason = "connection lost";
+  } else if (ContactStatus === "Removed") {
+    status = "offline";
+    reason = "power outage or removed";
+  }
 
   if (status) {
     io.emit("agentStatusUpdate", { agentId: EndpointName, status });
-    // Start/end shift based on status
+    // Start/end shift based on status using extension number
     if (status === "online") {
-      await startAgentShift(EndpointName);
+      await startAgentShiftByExtension(EndpointName);
     } else if (status === "offline") {
-      await endAgentShift(EndpointName);
+      await endAgentShiftByExtension(EndpointName, reason);
     }
   }
 }

@@ -53,8 +53,29 @@ const getAgentShifts = asyncHandler(async (req, res) => {
   res.json(shifts);
 });
 
+// @desc    Update reason for a shift
+// @route   PUT /api/shifts/:shiftId/reason
+// @access  Private
+const updateShiftReason = asyncHandler(async (req, res) => {
+  const { shiftId } = req.params;
+  const { reason } = req.body;
+  if (!reason || typeof reason !== 'string') {
+    return res.status(400).json({ error: 'Reason is required' });
+  }
+  const shift = await Shift.findByIdAndUpdate(
+    shiftId,
+    { reason },
+    { new: true }
+  );
+  if (!shift) {
+    return res.status(404).json({ error: 'Shift not found' });
+  }
+  res.json({ success: true, reason: shift.reason, shift });
+});
+
 module.exports = {
   startShift,
   endShift,
   getAgentShifts,
+  updateShiftReason,
 };

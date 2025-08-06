@@ -85,6 +85,8 @@ app.use('/api/kb', kbRoutes);
 
 // Metrics Routes
 app.use('/api/metrics', metricsRoutes);
+const metricsTodayRoutes = require('./routes/metricsToday');
+app.use('/api/metrics', metricsTodayRoutes);
 
 // Supervisor Routes
 app.use('/api/supervisors', supervisorRoutes);

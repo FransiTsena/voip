@@ -16,6 +16,10 @@ const shiftSchema = new mongoose.Schema({
   duration: {
     type: Number, // in seconds
   },
+  reason: {
+    type: String,
+    default: '',
+  },
 }, { timestamps: true });
 
 const Shift = mongoose.model('Shift', shiftSchema);

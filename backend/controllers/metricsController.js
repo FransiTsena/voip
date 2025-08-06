@@ -107,6 +107,53 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get agent shift report
+// @route   GET /api/metrics/agent/:agentId/shifts
+// @access  Private
+const getAgentShiftReport = asyncHandler(async (req, res) => {
+  const { agentId } = req.params;
+  // Fetch agent details
+  const agent = await Agent.findById(agentId).select('name username email');
+  if (!agent) {
+    return res.status(404).json({ error: 'Agent not found' });
+  }
+  const shifts = await Shift.find({ agentId }).sort({ startTime: -1 });
+  if (!shifts || shifts.length === 0) {
+    return res.json({ agentId, agent, shifts: [], totalShifts: 0, totalDuration: 0 });
+  }
+  // Format shift data for report
+  let totalDuration = 0;
+  const report = shifts.map(shift => {
+    const start = shift.startTime ? new Date(shift.startTime) : null;
+    const end = shift.endTime ? new Date(shift.endTime) : null;
+    let duration = shift.duration;
+    if (!duration) {
+      if (end && start) {
+        duration = (end - start) / 1000;
+      } else if (start && !end) {
+        duration = (Date.now() - start.getTime()) / 1000;
+      } else {
+        duration = 0;
+      }
+    }
+    totalDuration += duration;
+    return {
+      startTime: start ? start.toISOString() : null,
+      endTime: end ? end.toISOString() : null,
+      duration,
+      ongoing: !shift.endTime,
+    };
+  });
+  res.json({
+    agentId,
+    agent,
+    shifts: report,
+    totalShifts: report.length,
+    totalDuration,
+  });
+});
+
 module.exports = {
   getAgentMetrics,
+  getAgentShiftReport,
 };
