@@ -1,5 +1,4 @@
 // /ami/handler.js (Example file path)
-const { TfiControlShuffle } = require("react-icons/tfi");
 const CallLog = require("../models/callLog.js");
 const Queue = require("../models/queue.js");
 const fs = require("fs");
@@ -29,6 +28,8 @@ const state = {
   queueCallers: [],
   endpointList: [],
   agentShifts: {},
+  activeBridges: {},
+  recordedLinkedIds: {},
 };
 
 // On startup, load all ongoing shifts and pending ends into memory
@@ -205,20 +206,20 @@ function handleDialBegin(event, io) {
   state.activeRinging[Linkedid].ringingChannels.add(DestChannel);
   console.log(`📞 Ringing started on ${DestChannel} for call ${Linkedid}`);
 
-  updateCallLog(
-    Linkedid,
-    {
-      linkedId: Linkedid,
-      callerId: CallerIDNum,
-      callerName: CallerIDName,
-      callee: DestExten,
-      startTime: new Date(),
-      status: "ringing",
-      channels: [DestChannel],
-      direction: DialString && DialString.startsWith("PJSIP/") ? "outbound" : "inbound",
-    },
-    { upsert: true } // Create the document if it doesn't exist
-  );
+  // updateCallLog(
+  //   Linkedid,
+  //   {
+  //     linkedId: Linkedid,
+  //     callerId: CallerIDNum,
+  //     callerName: CallerIDName,
+  //     callee: DestExten,
+  //     startTime: new Date(),
+  //     status: "ringing",
+  //     channels: [DestChannel],
+  //     direction: DialString && DialString.startsWith("PJSIP/") ? "outbound" : "inbound",
+  //   },
+  //   { upsert: true } // Create the document if it doesn't exist
+  // );
 }
 
 const handleQueueStatus = (event) => {
@@ -226,89 +227,102 @@ const handleQueueStatus = (event) => {
 }
 
 /**
- * Handles the 'BridgeEnter' event when a call is answered.
+ * 🆕 REVISED: Handles the 'BridgeEnter' event to detect a two-party conversation and start recording.
+ * This version uses the Linkedid to ensure only one recording is started per call, and the PJSIP
+ * channel to ensure it's the correct bridge.
  * @param {object} event - The AMI event object.
  * @param {object} io - The Socket.IO server instance.
+ * @param {object} ami - The AMI client instance.
  */
+// Add to state
+state.recordingByLinkedId = {};
+
 function handleBridgeEnter(event, io, ami) {
-  const {
-    Linkedid,
-    CallerIDNum,
-    CallerIDName,
-    ConnectedLineNum,
-    ConnectedLineName,
-    Channel
-  } = event;
+    const { BridgeUniqueid, Linkedid, Channel, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName } = event;
 
-  // Store the call info
-  state.ongoingCalls[Linkedid] = {
-    caller: CallerIDNum,
-    callerName: CallerIDName,
-    agent: ConnectedLineNum,
-    agentName: ConnectedLineName,
-    state: "Talking",
-    startTime: Date.now(),
-    channels: [Channel],
-  };
+    // 🆕 NEW: Ensure Linkedid is valid before proceeding
+    if (!Linkedid) {
+        console.error("Received BridgeEnter event with no Linkedid.");
+        return;
+    }
+    
+    if (!state.activeBridges[BridgeUniqueid]) {
+        state.activeBridges[BridgeUniqueid] = {
+            channels: new Set(),
+            linkedId: Linkedid,
+            callerId: CallerIDNum,
+            callerName: CallerIDName,
+            connectedLineNum: ConnectedLineNum,
+            connectedLineName: ConnectedLineName,
+        };
+    }
 
-  // 🔥 Build a safe filename
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const fileName = `insa-${CallerIDNum}-${ConnectedLineNum}-${timestamp}.wav`;
-  const filePath = path.join(recordingsBasePath, fileName);
-  console.log("Recording file path:", filePath);
-  console.log("channel1", Channel);
-  console.log("channel2", Channel);
-  // 🧠 Trigger MixMonitor via AMI
-  if (Channel) {
-    ami.action(
-      {
-        Action: "MixMonitor",
-        Channel: Channel,
-        File: filePath,
-        Options: "a", // Record both directions
-      },
-      (err, res) => {
-        if (err) {
-          console.error("❌ Failed to start recording:", err);
-        } else {
-          console.log(`✅ Recording started: ${filePath}`);
-        }
-      }
-    );
+    state.activeBridges[BridgeUniqueid].channels.add(Channel);
+
+    const bridgeData = state.activeBridges[BridgeUniqueid];
+    const channels = [...bridgeData.channels];
+
+    // 🆕 REFINED CHECK: Use Object.prototype.hasOwnProperty to safely check if a recording has started
+    if (channels.length === 2 && !Object.prototype.hasOwnProperty.call(state.recordingByLinkedId, Linkedid)) {
+        console.log("Starting recording for Linkedid:", Linkedid, "on bridge:", BridgeUniqueid, "with channels:", channels);
+            // Immediately mark this call as being recorded to prevent a race condition
+            state.recordingByLinkedId[Linkedid] = true;
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+            const fileName = `call-log-${Linkedid}-${timestamp}.wav`;
+            const filePath = path.join(recordingsBasePath, fileName);
+            
+            console.log(`✅ Caller-Agent conversation detected on bridge ${BridgeUniqueid} for Linkedid ${Linkedid}. Starting MixMonitor.`);
+      
+            ami.action({
+                Action: "MixMonitor",
+                Channel: channels.find(c => c.startsWith('PJSIP/')),
+                File: filePath,
+                Options: "b",
+            }, (err) => {
+                if (err) {
+                    console.error("❌ Failed to start recording:", err);
+                    // Reset the flag if the AMI action fails
+                    delete state.recordingByLinkedId[Linkedid];
+                } else {
+                    console.log(`✅ MixMonitor AMI command sent successfully for ${filePath}`);
+                }
+            });
+            
+            // It's also a good idea to update the call log here, once you've decided to record
+            updateCallLog(Linkedid, {
+                answerTime: new Date(),
+                status: "answered",
+                callee: bridgeData.connectedLineNum,
+                calleeName: bridgeData.connectedLineName,
+                recordingPath: filePath,
+            });
+    }
+
+    // Your original logic for the frontend
+    state.ongoingCalls[Linkedid] = {
+        caller: CallerIDNum,
+        callerName: CallerIDName,
+        agent: ConnectedLineNum,
+        agentName: ConnectedLineName,
+        state: "Talking",
+        startTime: Date.now(),
+        channels: Array.from(state.activeBridges[BridgeUniqueid].channels),
+    };
+
+    io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+} 
+
+// --- Bridge Destroy Handler ---
+// 🆕 NEW: This function cleans up the state when a bridge is destroyed.
+function handleBridgeDestroy(event) {
+  const { BridgeUniqueid } = event;
+  if (state.activeBridges[BridgeUniqueid]) {
+    delete state.activeBridges[BridgeUniqueid];
+    console.log(`Bridge ${BridgeUniqueid} destroyed. State cleaned up.`);
   }
-
-  // 💡 Send updated state to frontend
-  io.emit("ongoingCalls", Object.values(state.ongoingCalls));
 }
 
-// function handleBridgeEnter(event, io) {
-//   const { Linkedid, CallerIDNum, CallerIDName, ConnectedLineNum, ConnectedLineName, Channel1, Channel2 } = event;
-
-//   // ... (check for state.activeRinging[Linkedid]) ...
-
-//   state.ongoingCalls[Linkedid] = {
-//     caller: CallerIDNum,       // '007'
-//     callerName: CallerIDName,   // 'Jhon whick'
-//     agent: ConnectedLineNum,    // '1001'
-//     agentName: ConnectedLineName, // 'Agent 1' (this is a good addition for the UI!)
-//     state: "Talking",
-//     startTime: Date.now(),      // Current timestamp when the bridge occurred
-//     channels: [Channel1, Channel2].filter(Boolean), // Will store relevant channels
-//   };
-
-//   // ... (delete from activeRinging) ...
-
-//   // updateCallLog(Linkedid, {
-//   //   answerTime: new Date(),
-//   //   status: "answered",
-//   //   callee: ConnectedLineNum,    // '1001'
-//   //   calleeName: ConnectedLineName, // 'Agent 1'
-//   //   $addToSet: { channels: { $each: [Channel1, Channel2].filter(Boolean) } },
-//   // });
-//   // console.log(on)
-//   // ⭐ This sends the updated list of ongoing calls to your frontend ⭐
-//   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
-// }
 /**
  * Handles the 'Hangup' event, consolidating all end-of-call logic.
  * This is the single source of truth for terminated calls.
@@ -316,6 +330,7 @@ function handleBridgeEnter(event, io, ami) {
  * @param {object} io - The Socket.IO server instance.
  */
 function handleHangup(event, io) {
+  console.log("Hangup Event:", event);
   const { Linkedid, Channel, Cause, CauseTxt } = event;
 
   // Case 1: Call was hung up while ringing -> Missed Call
@@ -363,7 +378,7 @@ function handleHangup(event, io) {
 function handleHold(event, io) {
   if (state.ongoingCalls[event.Linkedid]) {
     state.ongoingCalls[event.Linkedid].state = "On Hold";
-    updateCallLog(event.Linkedid, { status: "on_hold" });
+    // updateCallLog(event.Linkedid, { status: "on_hold" });
     console.log(state.ongoingCalls)
     io.emit("ongoingCalls", Object.values(state.ongoingCalls));
   }
@@ -482,6 +497,9 @@ async function handleContactStatus(event, io) {
   }
 }
 
+const handleBridgeCreate = (event) => {
+}
+
 // --- MAIN SETUP FUNCTION ---
 
 /**
@@ -494,28 +512,23 @@ async function setupAmiEventListeners(ami, io) {
   ami.setMaxListeners(50);
   await loadQueueNamesMap();
   // -- Register all event handlers --
-  ami.on("DialBegin", (event) => handleDialBegin(event, io));
+  ami.on("BridgeCreate", (event) => {handleBridgeCreate(event, io, ami)})
   ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io, ami));
+  ami.on("BridgeDestroy", handleBridgeDestroy);
+
+  ami.on("DialBegin", (event) => handleDialBegin(event, io));
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
-  ami.on("BridgeCreate", (event) => {
 
-    console.log("BridgeCreate Event:", event);
-  })
   ami.on("MixMonitorStart", (event) => {
-    console.log("MixMonitorStart Event:", event);
-    console.log("MixMonitorStart Event:", event);
-    console.log("MixMonitorStart Event:", event);
     console.log("MixMonitorStart Event:", event);
     // Handle MixMonitorStart if needed
   });
   ami.on("MixMonitorStop", (event) => {
-    console.log("MixMonitorStop Event:", event);
-    console.log("MixMonitorStop Event:", event);
-    console.log("MixMonitorStop Event:", event);
-    console.log("MixMonitorStop Event:", event);
+    console.log("MixMonitorStop Event:", event)
   })
+
   // Handle MixMonitorStop if needed
 
   // Queue Events

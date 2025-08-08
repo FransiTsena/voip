@@ -169,8 +169,8 @@ const generateQueueDialplan = (allQueues) => {
     allQueues.forEach(queue => {
     const timeout = queue.timeout || 30;
     const failoverExt = queue.failoverExt || '1003';
-    const callRecording = queue.generalSettings?.callRecording || 'dontcare';
-    console.log(`Call Recording Setting: ${callRecording}`);
+    // const callRecording = queue.generalSettings?.callRecording || 'dontcare'; // This variable is no longer needed
+    console.log(`Call Recording Setting: No Recording`); // Updated log message
 
     queueBindings += `exten => ${queue.queueId},1,NoOp(Processing Custom Queue: ${queue.name} - ID: ${queue.queueId})\n`;
     queueBindings += `same => n,Gosub(macro-user-callerid,s,1())\n`;
@@ -183,13 +183,16 @@ const generateQueueDialplan = (allQueues) => {
     queueBindings += `same => n,ExecIf($["\${MOHCLASS}"!=""]?Set(CHANNEL(musicclass)=\${MOHCLASS}))\n`;
     queueBindings += `same => n,Set(QUEUEJOINTIME=\${EPOCH})\n`;
 
-    // Dynamically set call recording behavior
-    queueBindings += `same => n,Gosub(sub-record-check,s,1(q,${queue.queueId},${callRecording}))\n`;
+    // Removed the call recording initiation line
+    // queueBindings += `same => n,Gosub(sub-record-check,s,1(q,${queue.queueId},${callRecording}))\n`;
 
     queueBindings += `same => n,QueueLog(${queue.queueId},\${UNIQUEID},NONE,DID,\${FROM_DID})\n`;
     queueBindings += `same => n,Queue(${queue.queueId},t,,,${timeout})\n`;
     queueBindings += `same => n,Gosub(macro-blkvm-clr,s,1())\n`;
-    queueBindings += `same => n,Gosub(sub-record-cancel,s,1())\n`;
+    
+    // Removed the call recording cancellation line
+    // queueBindings += `same => n,Gosub(sub-record-cancel,s,1())\n`;
+    
     queueBindings += `same => n,Set(__NODEST=)\n`;
     queueBindings += `same => n,Goto(from-did-direct,${failoverExt},1)\n`;
 });
@@ -197,7 +200,6 @@ const generateQueueDialplan = (allQueues) => {
 
     return queueBindings;
 };
-
 
 // Helper to generate Asterisk dialplan for Agent extensions
 const generateAgentDialplan = (allAgents) => {
