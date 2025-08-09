@@ -5,6 +5,7 @@ const express = require("express");
 require("dotenv").config();
 const connectDB = require("./config/db");
 const cors = require("cors");
+const fs = require("fs");
 const agentRoutes = require("./routes/agent");
 const queueRoutes = require("./routes/queueRoutes");
 const reportRoutes = require("./routes/report");
@@ -40,7 +41,7 @@ connectDB();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000'], // or your frontend URL
+  origin: ['http://localhost:5173', 'http://localhost:3000', "http://10.42.0.1:5173", "http://10.42.0.1:3000"], // or your frontend URL
   credentials: true
 }));
 app.use(morgan('dev'));

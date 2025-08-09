@@ -290,6 +290,8 @@ const updateAgentStatusRoute = asyncHandler(async (req, res) => {
 async function getAllAgents(req, res, next) {
   try {
     console.log('[PJSIP] Fetching all agents from AMI');
+    console.log(global.amiReady, ami)
+    console.log('[PJSIP] Fetching all agents from AMI');
     if (!global.amiReady || !ami) {
       return res.status(503).json({ error: 'Asterisk AMI is not connected yet.' });
     }

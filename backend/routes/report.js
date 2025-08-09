@@ -3,6 +3,7 @@ const router = express.Router();
 const reportController = require('../controllers/report_controller');
 const agentsController = require('../controllers/agents');
 const queueController = require('../controllers/queue');
+const { listRecordings, streamRecordingByCallLogId } = require('../controllers/recordingController');
 
 
 
@@ -37,4 +38,9 @@ router.get('/calls/by-caller', reportController.getCallsByCaller);
 // GET /report/calls/:id
 router.get('/calls/:id', reportController.getCallById);
 // GET /report/calls/summary
+
+
+// Recording routes backed by CallLog
+router.get('/recordings', listRecordings);
+router.get('/recordings/:id/stream', streamRecordingByCallLogId);
 module.exports = router;
