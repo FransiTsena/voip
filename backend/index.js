@@ -3,7 +3,7 @@ const http = require("http");
 const { Server } = require("socket.io");
 const AmiClient = require("asterisk-ami-client");
 const app = require("./app"); // Your Express app
-const { setupAmiEventListeners,state } = require('./config/amiConfig');
+const { setupAmiEventListeners, state, emitAgentStatus } = require('./config/amiConfig');
 
 // Import the setup function and state from our refactored AMI handler
 
@@ -26,10 +26,15 @@ const io = new Server(server, {
 // --- AMI Connection and Application Logic ---
 const ami = new AmiClient();
 
+// Make AMI globally accessible
+global.ami = ami;
+global.amiReady = false;
+
 // Connect to AMI, then set up all event listeners and socket connections.
 ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
   .then(() => {
     console.log("✅ [AMI] Connected successfully!");
+    global.amiReady = true;
 
     // CRITICAL: Set up the AMI event listeners ONCE after a successful connection.
     setupAmiEventListeners(ami, io);
@@ -42,7 +47,27 @@ ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
       // This ensures their dashboard is populated without waiting for a new event.
       socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
       socket.emit("queueMembers", state.queueMembers);
-      // You can add more initial state emissions here if needed
+      
+      // Send current enriched agent status if available
+      if (Object.keys(state.agentStatus).length > 0) {
+        emitAgentStatus(socket); // Send to this specific socket
+      }
+
+      // Handle request for current agent list - now uses enriched data
+      socket.on("requestAgentList", () => {
+        try {
+          if (!global.amiReady) {
+            socket.emit("agentListError", { error: "AMI not connected" });
+            return;
+          }
+
+          // Send the enriched agent data immediately from memory
+          emitAgentStatus(socket);
+          
+        } catch (error) {
+          socket.emit("agentListError", { error: error.message });
+        }
+      });
 
       // Handle events received FROM this specific client.
       socket.on("hangupCall", (linkedId) => {

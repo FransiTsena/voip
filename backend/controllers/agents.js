@@ -1,10 +1,10 @@
-require('dotenv').config();
-const fs = require('fs');
-const ini = require('ini');
-const { exec } = require('child_process');
-const { ami } = require('../config/amiConfig');
-const Extension = require('../models/extension');
-const e = require('express');
+require("dotenv").config();
+const fs = require("fs");
+const ini = require("ini");
+const { exec } = require("child_process");
+// AMI is now available globally
+const Extension = require("../models/extension");
+const e = require("express");
 // const hashPassword = require('../utils/hashPassword');
 // const axios = require('axios');
 
@@ -15,23 +15,24 @@ const AUTH_CUSTOM_CONF_PATH = "/etc/asterisk/pjsip.auth_custom.conf";
 
 // Helper: load INI config
 function loadConfig(configPath) {
-  console.log('[PJSIP] Loading config from', configPath);
-  return ini.parse(fs.readFileSync(configPath, 'utf-8'));
+  console.log("[PJSIP] Loading config from", configPath);
+  return ini.parse(fs.readFileSync(configPath, "utf-8"));
 }
 
 // Helper: save INI config
 function saveConfig(config, configPath) {
-  console.log('[PJSIP] Saving config to', configPath);
+  console.log("[PJSIP] Saving config to", configPath);
   fs.writeFileSync(configPath, ini.stringify(config, { whitespace: true }));
-  console.log('[PJSIP] Config saved successfully');
+  console.log("[PJSIP] Config saved successfully");
 }
 
 // Helper: reload PJSIP
 function reloadPJSIP() {
   exec('sudo asterisk -rx "core reload"', (error, stdout, stderr) => {
-    if (error) return console.error(`[PJSIP] Error reloading PJSIP: ${error.message}`);
+    if (error)
+      return console.error(`[PJSIP] Error reloading PJSIP: ${error.message}`);
     if (stderr) return console.error(`[PJSIP] Reload stderr: ${stderr}`);
-    console.log('[PJSIP] Reloaded successfully:', stdout.trim());
+    console.log("[PJSIP] Reloaded successfully:", stdout.trim());
   });
 }
 
@@ -54,63 +55,15 @@ function sanitizeObject(obj, allowedFields) {
 // Utility: async error handler wrapper
 function asyncHandler(fn) {
   return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(err => errorResponse(res, 500, err.message));
+    Promise.resolve(fn(req, res, next)).catch((err) =>
+      errorResponse(res, 500, err.message)
+    );
   };
-}
-
-function addExtension(extension) {
-  const config = loadConfig(PJSIP_CUSTOM_CONF_PATH);
-  if (config[extension]) throw new Error('User already exists');
-  config[extension] = {
-    "type": "endpoint",
-    "aors": extension,
-    "auth": `${extension}-auth`,
-    "tos_audio": "ef",
-    "tos_video": "af41",
-    "cos_audio": 5,
-    "cos_video": 4,
-    "allow": "ulaw,alaw,gsm,g726,g722",
-    "context": "from-internal",
-    "callerid": `Agent 2 <${extension}>`,
-    "dtmf_mode": "rfc4733",
-    "direct_media": "yes",
-    "aggregate_mwi": "yes",
-    "use_avpf": "no",
-    "rtcp_mux": "no",
-    "max_audio_streams": 1,
-    "max_video_streams": 1,
-    "bundle": "no",
-    "ice_support": "no",
-    "media_use_received_transport": "no",
-    "trust_id_inbound": "yes",
-    "user_eq_phone": "no",
-    "send_connected_line": "yes",
-    "media_encryption": "no",
-    "timers": "yes",
-    "timers_min_se": 90,
-    "media_encryption_optimistic": "no",
-    "refer_blind_progress": "yes",
-    "rtp_timeout": 30,
-    "rtp_timeout_hold": 300,
-    "rtp_keepalive": 0,
-    "send_pai": "yes",
-    "rtp_symmetric": "yes",
-    "rewrite_contact": "yes",
-    "force_rport": "yes",
-    "language": "en",
-    "one_touch_recording": "on",
-    "record_on_feature": "apprecord",
-    "record_off_feature": "apprecord",
-    "transport": "0.0.0.0-ws",
-    "webrtc": "yes"
-  };
-  saveConfig(config, PJSIP_CUSTOM_CONF_PATH);
-  console.log(`[PJSIP] EXTENSION ${extension} added successfully`);
 }
 
 function addAOR(extension) {
   const config = loadConfig(AOR_CUSTOM_CONF_PATH);
-  if (config[extension]) throw new Error('AOR already exists');
+  if (config[extension]) throw new Error("AOR already exists");
   config[extension] = {
     type: "aor",
     max_contacts: 4,
@@ -126,17 +79,17 @@ function addAOR(extension) {
 function addAUTH(options) {
   const config = loadConfig(AUTH_CUSTOM_CONF_PATH);
   const auth = options["username"];
-  if (config[`${auth}-auth`]) throw new Error('Auth section already exists');
+  if (config[`${auth}-auth`]) throw new Error("Auth section already exists");
   config[`${auth}-auth`] = options;
   saveConfig(config, AUTH_CUSTOM_CONF_PATH);
   console.log(`[PJSIP] AUTH ${auth}-auth added successfully`);
 }
 
-
 function removeUser(username) {
   // Remove from endpoint
   const endpointConfig = loadConfig(PJSIP_CUSTOM_CONF_PATH);
-  if (!endpointConfig[username]) throw new Error('User does not exist in endpoint');
+  if (!endpointConfig[username])
+    throw new Error("User does not exist in endpoint");
   delete endpointConfig[username];
   saveConfig(endpointConfig, PJSIP_CUSTOM_CONF_PATH);
   // Remove from AOR
@@ -151,163 +104,56 @@ function removeUser(username) {
     delete authConfig[`${username}-auth`];
     saveConfig(authConfig, AUTH_CUSTOM_CONF_PATH);
   }
-  console.log(`[PJSIP] User ${username} removed from all config files successfully`);
-}
-
-
-
-function modifyUser(username, options) {
-  // Define allowed fields for each config type
-  const endpointFields = [
-    "type", "aors", "auth", "tos_audio", "tos_video", "cos_audio", "cos_video", "allow", "context", "callerid", "dtmf_mode", "direct_media", "aggregate_mwi", "use_avpf", "rtcp_mux", "max_audio_streams", "max_video_streams", "bundle", "ice_support", "media_use_received_transport", "trust_id_inbound", "user_eq_phone", "send_connected_line", "media_encryption", "timers", "timers_min_se", "media_encryption_optimistic", "refer_blind_progress", "rtp_timeout", "rtp_timeout_hold", "rtp_keepalive", "send_pai", "rtp_symmetric", "rewrite_contact", "force_rport", "language", "one_touch_recording", "record_on_feature", "record_off_feature", "transport", "webrtc"
-  ];
-  const aorFields = [
-    "type", "max_contacts", "remove_existing", "maximum_expiration", "minimum_expiration", "qualify_frequency"
-  ];
-  const authFields = [
-    "type", "auth_type", "password", "username"
-  ];
-
-  // Modify endpoint
-  const endpointConfig = loadConfig(PJSIP_CUSTOM_CONF_PATH);
-  if (endpointConfig[username]) {
-    const endpointUpdates = sanitizeObject(options, endpointFields);
-    endpointConfig[username] = { ...endpointConfig[username], ...endpointUpdates };
-    saveConfig(endpointConfig, PJSIP_CUSTOM_CONF_PATH);
-  }
-  // Modify AOR
-  const aorConfig = loadConfig(AOR_CUSTOM_CONF_PATH);
-  if (aorConfig[username]) {
-    const aorUpdates = sanitizeObject(options, aorFields);
-    aorConfig[username] = { ...aorConfig[username], ...aorUpdates };
-    saveConfig(aorConfig, AOR_CUSTOM_CONF_PATH);
-  }
-  // Modify AUTH
-  const authConfig = loadConfig(AUTH_CUSTOM_CONF_PATH);
-  if (authConfig[`${username}-auth`]) {
-    const authUpdates = sanitizeObject(options, authFields);
-    authConfig[`${username}-auth`] = { ...authConfig[`${username}-auth`], ...authUpdates };
-    saveConfig(authConfig, AUTH_CUSTOM_CONF_PATH);
-  }
-  console.log(`[PJSIP] User ${username} modified in all config files successfully`);
-}
-
-// Register Agent using both MongoDB and mini server (pjsip/app.js)
-const registerAgent = asyncHandler(async (req, res) => {
-  const { first_name, last_name, extension, password, device } = req.body;
-  if (!first_name || !last_name || !extension || !password)
-    return errorResponse(res, 400, 'first_name, last_name, extension, and password are required.');
-  // Check for duplicate extension in MongoDB (Extension model)
-  const existing = await Extension.findOne({ extension });
-  if (existing)
-    return errorResponse(res, 409, 'Extension with this number already exists.');
-  try {
-    addExtension(extension);
-    addAOR(extension);
-    addAUTH({
-      type: "auth",
-      auth_type: "userpass",
-      password: password,
-      username: extension,
-    });
-    reloadPJSIP();
-  } catch (miniServerError) {
-    return res.status(500).json({
-      message: 'Failed to register extension in mini server. Not saved to MongoDB.',
-      miniServerError: miniServerError.message
-    });
-  }
-  // Save to MongoDB (Extension model)
-  const extensionDoc = new Extension({
-    first_name,
-    last_name,
-    extension,
-    password,
-    aors: extension,
-    auth: `${extension}-auth`,
-  });
-  await extensionDoc.save();
-  res.status(201).json({
-    message: 'Extension registered successfully in both MongoDB and mini server.',
-    extension: extensionDoc
-  });
-});
-
-// Modify an agent's details (extension info)
-const modifyAgent = asyncHandler(async (req, res) => {
-  const { extension, updates } = req.body;
-  if (!extension || typeof updates !== 'object') {
-    return errorResponse(res, 400, 'extension and updates object are required.');
-  }
-  const allowedFields = [
-    'first_name', 'last_name', 'password', 'context', 'disallow', 'allow',
-    'direct_media', 'callerid', 'webrtc', 'transport', 'dtmf_mode',
-    'force_rport', 'rewrite_contact', 'ice_support', 'media_encryption',
-    'rtcp_mux', 'max_contacts', 'remove_existing', 'maximum_expiration',
-    'minimum_expiration', 'qualify_frequency'
-  ];
-  const sanitizedUpdates = sanitizeObject(updates, allowedFields);
-  if (Object.keys(sanitizedUpdates).length === 0) {
-    return errorResponse(res, 400, 'No valid fields to update.');
-  }
-  const extDoc = await Extension.findOneAndUpdate(
-    { extension },
-    { $set: sanitizedUpdates },
-    { new: true }
+  console.log(
+    `[PJSIP] User ${username} removed from all config files successfully`
   );
-  if (!extDoc) return errorResponse(res, 404, 'Extension not found.');
-  try {
-    modifyUser(extension, sanitizedUpdates);
-    reloadPJSIP();
-  } catch (err) {
-    return errorResponse(res, 500, 'Failed to update extension in mini server: ' + err.message);
-  }
-  res.json({ message: 'Extension updated successfully.', extension: extDoc });
-});
+}
 
 // Update agent status (e.g., online/offline)
 const updateAgentStatusRoute = asyncHandler(async (req, res) => {
   const { extension, status } = req.body;
   if (!extension || !status) {
-    return errorResponse(res, 400, 'extension and status are required.');
+    return errorResponse(res, 400, "extension and status are required.");
   }
-  const allowedStatuses = ['online', 'offline', 'busy', 'away'];
+  const allowedStatuses = ["online", "offline", "busy", "away"];
   if (!allowedStatuses.includes(status)) {
-    return errorResponse(res, 400, 'Invalid status value.');
+    return errorResponse(res, 400, "Invalid status value.");
   }
   const agent = await Agent.findOneAndUpdate(
     { extension },
     { $set: { status } },
     { new: true }
   );
-  if (!agent) return errorResponse(res, 404, 'Agent not found.');
-  res.json({ message: 'Agent status updated.', agent });
+  if (!agent) return errorResponse(res, 404, "Agent not found.");
+  res.json({ message: "Agent status updated.", agent });
 });
 
 // Get all agents (with basic info, no passwords)
 
 // Get all extensions using AMI (PJSIPShowEndpoints)
-async function getAllAgents(req, res, next) {
+async function getAllAgents(req, res) {
   try {
-    console.log('[PJSIP] Fetching all agents from AMI');
-    console.log(global.amiReady, ami)
-    console.log('[PJSIP] Fetching all agents from AMI');
-    if (!global.amiReady || !ami) {
-      return res.status(503).json({ error: 'Asterisk AMI is not connected yet.' });
+    console.log("[PJSIP] Fetching all agents from AMI");
+    console.log(global.amiReady, global.ami);
+    console.log("[PJSIP] Fetching all agents from AMI");
+    if (!global.amiReady || !global.ami) {
+      return res
+        .status(503)
+        .json({ error: "Asterisk AMI is not connected yet." });
     }
     let endpoints = [];
     let completed = false;
 
     // Handler for EndpointList events
     const onEndpointList = (event) => {
-      console.log('[PJSIP] EndpointList event received:', event);
-      console.log(event)
+      console.log("[PJSIP] EndpointList event received:", event);
+      console.log(event);
       endpoints.push(event);
     };
     const onEndpointListComplete = (event) => {
       completed = true;
       cleanup();
-      const extensionList = endpoints.map(e => ({
+      const extensionList = endpoints.map((e) => ({
         exten: e.ObjectName,
         aor: e.AOR,
         state: e.State,
@@ -315,36 +161,37 @@ async function getAllAgents(req, res, next) {
         transport: e.Transport,
         identifyBy: e.IdentifyBy,
         deviceState: e.DeviceState,
-        // eventType: e.Event 
+        // eventType: e.Event
       }));
       return res.status(200).json(extensionList);
     };
 
     // Cleanup function to remove listeners
     const cleanup = () => {
-      ami.removeListener('EndpointList', onEndpointList);
-      ami.removeListener('EndpointListComplete', onEndpointListComplete);
+      global.ami.removeListener("EndpointList", onEndpointList);
+      global.ami.removeListener("EndpointListComplete", onEndpointListComplete);
     };
 
     // Listen for EndpointList and EndpointListComplete events BEFORE sending the action
-    ami.on('EndpointList', onEndpointList);
-    ami.on('EndpointListComplete', onEndpointListComplete);
+    global.ami.on("EndpointList", onEndpointList);
+    global.ami.on("EndpointListComplete", onEndpointListComplete);
 
     // Send the action to trigger events
-    await ami.action({ Action: "PJSIPShowEndpoints" });
+    await global.ami.action({ Action: "PJSIPShowEndpoints" });
 
     // Timeout in case EndpointListComplete is not received
     setTimeout(() => {
       if (!completed) {
         cleanup();
-        return res.status(504).json({ error: 'Timeout waiting for EndpointListComplete event.' });
+        return res
+          .status(504)
+          .json({ error: "Timeout waiting for EndpointListComplete event." });
       }
     }, 5000);
   } catch (error) {
     res.status(500).json({ error: error.message, details: error });
   }
 }
-
 
 async function getAgentByNumber(req, res, next) {
   try {
@@ -354,21 +201,21 @@ async function getAgentByNumber(req, res, next) {
     }
     const number = req.params.number || req.query.extension;
     if (!number) {
-      return res.status(400).json({ error: 'extension is required.' });
+      return res.status(400).json({ error: "extension is required." });
     }
     const ageny = await Extension.findOne({ extension: number });
     if (!ageny) {
-      return res.status(404).json({ error: 'Agent not found.' });
+      return res.status(404).json({ error: "Agent not found." });
     } else {
       const agentData = {
         extension: ageny.extension,
         first_name: ageny.first_name,
         last_name: ageny.last_name,
-        status: ageny.status || 'offline',
+        status: ageny.status || "offline",
         aors: ageny.aors,
         auth: ageny.auth,
         createdAt: ageny.createdAt,
-        updatedAt: ageny.updatedAt
+        updatedAt: ageny.updatedAt,
       };
       return res.status(200).json(agentData);
     }
@@ -380,31 +227,34 @@ async function getAgentByNumber(req, res, next) {
 // Delete a single agent/extension
 const deleteSingleAgents = asyncHandler(async (req, res) => {
   const { extension } = req.body;
-  if (!extension) return errorResponse(res, 400, 'extension is required.');
+  if (!extension) return errorResponse(res, 400, "extension is required.");
   const extDoc = await Extension.findOneAndDelete({ extension });
-  if (!extDoc) return errorResponse(res, 404, 'Extension not found.');
+  if (!extDoc) return errorResponse(res, 404, "Extension not found.");
   try {
     removeUser(extension);
     reloadPJSIP();
   } catch (err) {
-    return errorResponse(res, 500, 'Failed to remove extension in mini server: ' + err.message);
+    return errorResponse(
+      res,
+      500,
+      "Failed to remove extension in mini server: " + err.message
+    );
   }
-  res.json({ message: 'Extension deleted successfully.' });
+  res.json({ message: "Extension deleted successfully." });
 });
 
 // Get all agent call statuses (dummy example, adapt as needed)
 const getAllAgentCallStatus = asyncHandler(async (req, res) => {
-  const agents = await Extension.find({}, 'extension status');
+  const agents = await Extension.find({}, "extension status");
   res.json({ agents });
 });
-
 
 // Get agent call logic by ID or extension
 const getAgentCallLogById = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  if (!id) return errorResponse(res, 400, 'ID is required.');
+  if (!id) return errorResponse(res, 400, "ID is required.");
   const agent = await Extension.findById(id);
-  if (!agent) return errorResponse(res, 404, 'Agent not found.');
+  if (!agent) return errorResponse(res, 404, "Agent not found.");
   res.json(agent);
 });
 
@@ -425,9 +275,63 @@ const getAgentsFromDatabase = async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// Get real-time agent status from AMI state
+const getRealTimeAgentStatus = async (req, res) => {
+  try {
+    if (!global.amiReady || !global.ami) {
+      return res
+        .status(503)
+        .json({ error: "Asterisk AMI is not connected yet." });
+    }
+
+    // Import state from amiConfig
+    const { state } = require("../config/amiConfig");
+    
+    // Get enriched agent data similar to the socket emission
+    const agents = await Extension.find({}, { extension: 1, first_name: 1, last_name: 1, _id: 1 }).lean();
+    const agentDataMap = {};
+    agents.forEach(agent => {
+      agentDataMap[agent.extension] = {
+        id: agent._id,
+        extension: agent.extension,
+        first_name: agent.first_name,
+        last_name: agent.last_name,
+        full_name: `${agent.first_name} ${agent.last_name}`
+      };
+    });
+
+    // Map real-time status with database info
+    const enrichedAgents = Object.values(state.agentStatus || {}).map(agentStatus => {
+      const agentData = agentDataMap[agentStatus.extension] || {};
+      return {
+        id: agentData.id || null,
+        extension: agentStatus.extension,
+        first_name: agentData.first_name || 'Unknown',
+        last_name: agentData.last_name || 'Agent',
+        full_name: agentData.full_name || `Agent ${agentStatus.extension}`,
+        status: agentStatus.status,
+        state: agentStatus.state,
+        contacts: agentStatus.contacts,
+        deviceState: agentStatus.deviceState,
+        lastUpdated: agentStatus.lastUpdated,
+        // Include AMI data for debugging if needed
+        aor: agentStatus.aor,
+        transport: agentStatus.transport
+      };
+    });
+
+    res.json({
+      success: true,
+      agents: enrichedAgents,
+      timestamp: new Date(),
+      totalAgents: enrichedAgents.length,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
 module.exports = {
-  // registerAgent,
-  // modifyAgent,
   updateAgentStatusRoute,
   getAllAgents,
   deleteSingleAgents,
@@ -435,5 +339,6 @@ module.exports = {
   getAgentCallLogById,
   getAgentCount,
   getAgentsFromDatabase,
-  getAgentByNumber
+  getAgentByNumber,
+  getRealTimeAgentStatus,
 };

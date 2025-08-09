@@ -41,7 +41,7 @@ router.get("/ex/:id", getAgentById);
 
 // // Update (modify) an agent
 // router.put("/:id", modifyAgent);
-router.get('/real-time', getAllAgents);
+router.get('/extension/real-time', getAllAgents);
 
 
 // // Get agent call statistics
