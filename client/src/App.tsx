@@ -24,6 +24,7 @@ import QueueList from "./pages/QueueList";
 import AgentList from "./pages/AgentList";
 import LoginPage from "./auth/Login";
 import { useAuth } from "./context/AuthContext";
+import QueueStatistics from "./pages/QueueStatistics";
 
 // Loading component to display while checking authentication
 const Loading = () => {
@@ -101,6 +102,7 @@ export default function App() {
         <Route path="queue-list" element={<QueueList />} />
         <Route path="queues/edit/:id" element={<QueuePage />} />
         <Route path="agents/list" element={<AgentList />} />
+        <Route path="queue-statistics" element={<QueueStatistics />} />
         <Route index element={<TableComponent />} />
       </Route>
     </Routes>

@@ -38,6 +38,7 @@ const Sidebar = () => {
       icon: <ListOrdered />,
       submenus: [
         { path: "/queues", name: "Queues", icon: <ListOrdered /> },
+        { path: "/queue-statistics", name: "Queue Statistics", icon: <BarChart3 /> },
       ],
     },
     {

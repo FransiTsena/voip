@@ -2,78 +2,124 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { UseSocket } from "../context/SocketContext";
 import baseUrl from "../util/baseUrl";
-import RegistrationForm from "../forms/AgentRegistrationForm";
-
 // Lucide React Icons
 import {
-  Activity, // Used for refresh and header
+  Activity,
   User,
   Star,
   BellRing,
   Pause,
   Users,
-  CircleCheck, // For online
-  CircleX, // For busy
-  Clock, // For away
-  Trash, // For modal close, not agent deletion
-  PlusCircle, // For add
+  CircleCheck,
+  CircleX,
+  Clock,
+  Trash,
+  PlusCircle,
+  Phone,
+  PhoneOff,
+  Timer,
+  TrendingUp,
+  BarChart3,
+  Calendar,
+  Globe,
 } from "lucide-react";
 
-// Updated Agent interface to match new backend response
+// Agent interface matching your backend response
 interface Agent {
-  exten: string;
-  aor?: string;
-  state?: string; // This might be a general state, AMI deviceState is more specific
+  id: string;
+  username: string;
+  extension: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  name: string;
+  email: string;
+  queues: string[];
+  deviceState: string;
+  liveStatus: string;
+  status: string;
+  lastActivity: string;
   contacts: string;
   transport: string;
-  identifyBy?: string;
-  deviceState: string; // e.g., 'NOT_INUSE', 'INUSE', 'RINGING', 'UNAVAILABLE', 'BUSY'
+  dailyStats: {
+    totalCalls: number;
+    answeredCalls: number;
+    missedCalls: number;
+    averageTalkTime: number;
+    averageWrapTime: number;
+    averageHoldTime: number;
+    averageRingTime: number;
+    longestIdleTime: number;
+  };
+  overallStats: {
+    totalCalls: number;
+    answeredCalls: number;
+    missedCalls: number;
+    averageTalkTime: number;
+    averageWrapTime: number;
+    averageHoldTime: number;
+    averageRingTime: number;
+    longestIdleTime: number;
+  };
 }
 
-const Dashboard = () => {
+const Agent: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [statsView, setStatsView] = useState<"daily" | "overall">("daily");
   const agentsPerPage = 10;
   const { socket } = UseSocket();
 
-  // Helper function to map AMI deviceState to a more user-friendly status
-  const mapAgentStatusForDisplay = (deviceState: string): string => {
-    console.log(deviceState )
-    switch (deviceState) {
-      case 'Not in use':
-        return 'online'; // Agent is available
-      case 'InUse':
-      case 'Busy':
-        return 'busy'; // Agent is on a call or otherwise occupied
-      case 'Ringing':
-        return 'ringing'; // Agent's phone is ringing
-      case 'Unavailable':
-        return 'offline'; // Agent is not registered/available
+  // Helper function to get status badge styles
+  const getStatusBadge = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "online":
+        return "bg-green-500 text-white";
+      case "busy":
+        return "bg-red-500 text-white";
+      case "away":
+        return "bg-yellow-500 text-white";
+      case "offline":
+        return "bg-gray-500 text-white";
+      case "ringing":
+        return "bg-blue-500 text-white";
+      case "paused":
+        return "bg-purple-500 text-white";
       default:
-        return 'unknown'; // Fallback for unhandled states
+        return "bg-gray-500 text-white";
     }
   };
 
-  // Helper function to get status badge styles
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'online':
-        return 'bg-green-500 text-white';
-      case 'busy':
-        return 'bg-red-500 text-white';
-      case 'away':
-        return 'bg-yellow-500 text-white';
-      case 'offline':
-        return 'bg-gray-500 text-white';
-      case 'ringing':
-        return 'bg-blue-500 text-white';
-      case 'paused':
-        return 'bg-purple-500 text-white';
+  // Helper function to format time in seconds to MM:SS
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // Helper function to get status icon
+  const getStatusIcon = (status: string, liveStatus: string) => {
+    if (liveStatus === "Ringing") return <BellRing className="w-5 h-5" />;
+
+    switch (status.toLowerCase()) {
+      case "online":
+        return <CircleCheck className="w-5 h-5 text-green-600" />;
+      case "busy":
+        return <CircleX className="w-5 h-5 text-red-600" />;
+      case "away":
+        return <Clock className="w-5 h-5 text-yellow-600" />;
+      case "offline":
+        return <User className="w-5 h-5 text-gray-600" />;
+      case "ringing":
+        return <BellRing className="w-5 h-5 text-blue-600" />;
+      case "paused":
+        return <Pause className="w-5 h-5 text-purple-600" />;
       default:
-        return 'bg-gray-500 text-white';
+        return <User className="w-5 h-5 text-gray-600" />;
     }
   };
 
@@ -81,26 +127,26 @@ const Dashboard = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get(`${baseUrl}/api/agent/real-time`);
+      const response = await axios.get(
+        `${baseUrl}/api/agent/extension/real-time`
+      );
       const data = response.data;
-      if (Array.isArray(data)) {
-        setAgents(data);
+
+      console.log("📡 Fetched agents from API:", data);
+
+      if (data.success && Array.isArray(data.agents)) {
+        setAgents(data.agents);
+        console.log(`✅ Loaded ${data.agents.length} agents from API`);
       } else {
+        console.warn("⚠️ Invalid API response format:", data);
         setAgents([]);
       }
       setLoading(false);
     } catch (err) {
+      console.error("❌ Error fetching agents:", err);
       setError("Failed to fetch agents. Please try again.");
       setLoading(false);
-      console.error("Error fetching agents:", err);
     }
-  };
-
-  // Delete handler (stub, since backend does not support deletion)
-  const handleDelete = async (_objectName: string) => {
-    // This function is still here but the button to trigger it is removed from the UI.
-    console.log("Agent deletion is not handled in Asterisk-only mode for:", _objectName);
-    alert("Agent deletion is not handled in Asterisk-only mode."); // Fallback for quick demo, replace with custom modal
   };
 
   const handleOpenModal = () => setShowModal(true);
@@ -117,37 +163,46 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    console.log("🚀 Agent component mounted, fetching initial data...");
     fetchAgents();
-    if (!socket) return;
-    setLoading(true);
 
-    const handleQueueMembers = (data: any[]) => {
-      // Map backend data to Agent interface (fields from your example)
-      const mappedAgents: Agent[] = data.map((member) => ({
-        exten: member.ObjectName,
-        aor: member.Aor,
-        state: member.DeviceState, // Assuming deviceState is the primary state indicator
-        contacts: member.Contacts,
-        transport: member.Transport,
-        identifyBy: member.Auths,
-        deviceState: member.DeviceState,
-      }));
-      setAgents(mappedAgents);
-      setLoading(false);
-      setError(null);
-    };
+    if (!socket) {
+      console.warn("⚠️ Socket not available");
+      return;
+    }
 
-    // Handler for the socket event (backend emits just the array)
-    const socketHandler = (msg: any) => {
-      if (Array.isArray(msg)) {
-        handleQueueMembers(msg);
+    console.log("🔌 Setting up socket listeners...");
+
+    const handleAgentData = (data: Agent[]) => {
+      console.log("📡 Received real-time agent data via socket:", data);
+      console.log(`📊 Received ${data.length} agents via socket`);
+
+      if (Array.isArray(data) && data.length > 0) {
+        setAgents(data);
+        setLoading(false);
+        setError(null);
+        console.log("✅ Updated agents from socket data");
+      } else {
+        console.warn("⚠️ Received empty or invalid socket data:", data);
       }
     };
 
-    socket.on("endpointList", socketHandler);
-    socket.emit && socket.emit("PJSIPShowEndpoints");
+    // Listen to the real-time agent data from your backend
+    socket.on("agentStatusWithStats", handleAgentData);
+
+    // Listen for individual status updates
+    socket.on("agentStatusUpdate", (data) => {
+      console.log("🔄 Individual agent status update:", data);
+    });
+
+    // Request current agent list immediately
+    console.log("📤 Requesting agent list via socket...");
+    socket.emit("requestAgentList");
+
     return () => {
-      socket.off("endpointList", socketHandler);
+      console.log("🧹 Cleaning up socket listeners...");
+      socket.off("agentStatusWithStats", handleAgentData);
+      socket.off("agentStatusUpdate");
     };
   }, [socket]);
 
@@ -156,33 +211,24 @@ const Dashboard = () => {
     const summary = {
       online: 0,
       busy: 0,
-      away: 0, // Not directly from deviceState, needs custom logic/backend field
+      away: 0,
       ringing: 0,
-      paused: 0, // Not directly from deviceState, needs custom logic/backend field
+      paused: 0,
       offline: 0,
     };
 
-    agents.forEach(agent => {
-      const displayStatus = mapAgentStatusForDisplay(agent.deviceState);
-      if (displayStatus === 'online') summary.online++;
-      else if (displayStatus === 'busy') summary.busy++;
-      else if (displayStatus === 'ringing') summary.ringing++;
-      else if (displayStatus === 'offline') summary.offline++;
-      // For 'away' and 'paused', you would need specific backend data
-      // For demonstration, let's assume some agents are manually set to away/paused
-      // if (agent.customStatus === 'away') summary.away++;
-      // if (agent.customStatus === 'paused') summary.paused++;
+    agents.forEach((agent) => {
+      const status = agent.status.toLowerCase();
+      const liveStatus = agent.liveStatus.toLowerCase();
+
+      if (status === "online") summary.online++;
+      else if (status === "busy") summary.busy++;
+      else if (status === "offline") summary.offline++;
+      else if (liveStatus === "ringing") summary.ringing++;
+      else if (liveStatus === "paused") summary.paused++;
+      else if (liveStatus === "away") summary.away++;
+      else summary.offline++; // Default unknown to offline
     });
-
-    // Add some dummy counts for away/paused if they don't naturally occur from deviceState
-    // Remove these lines if your backend provides these states
-    // These lines are for demonstration if 'away'/'paused' statuses aren't from deviceState
-    if (summary.online > 0 && agents.length > 0) {
-      summary.online = Math.max(0, summary.online - 1); // Adjust for dummy away/paused
-      summary.away = 1; // Dummy away agent
-      summary.paused = 1; // Dummy paused agent
-    }
-
 
     return {
       ...summary,
@@ -190,155 +236,435 @@ const Dashboard = () => {
     };
   }, [agents]);
 
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-white p-6 flex justify-center items-center">
-        <p className="text-gray-700 text-lg">Loading agents...</p>
+      <div className="min-h-screen bg-gray-50 p-6 flex justify-center items-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+          <p className="text-gray-700 text-lg">Loading agents...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white p-6 flex flex-col justify-center items-center">
-        <p className="text-red-500 text-lg mb-4">{error}</p>
-        <button
-          onClick={fetchAgents}
-          className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-md flex items-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-        >
-          <Activity className="mr-2 text-lg" /> Retry
-        </button>
+      <div className="min-h-screen bg-gray-50 p-6 flex flex-col justify-center items-center">
+        <div className="text-center bg-white rounded-lg shadow-lg p-8">
+          <CircleX className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <p className="text-red-500 text-lg mb-4">{error}</p>
+          <button
+            onClick={fetchAgents}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg shadow-md flex items-center mx-auto font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          >
+            <Activity className="mr-2 w-5 h-5" /> Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-6 font-inter antialiased flex justify-center items-start">
-      <div className="w-full max-w-4xl flex flex-col gap-6"> {/* Changed to flex-col for vertical stacking */}
-        {/* Agent Status Summary Card (Top Section) */}
-        <div className="bg-gray-100 rounded-xl shadow-lg p-6 flex flex-col">
-          <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
-            <Users className="w-5 h-5 mr-2 text-blue-600" /> Agent Overview
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"> {/* Responsive grid for summary */}
-            {Object.entries(agentSummary).map(([status, count]) => (
-              status !== 'total' && (
-                <div key={status} className="flex items-center space-x-3 p-3 bg-white rounded-lg shadow-sm">
-                  {status === 'online' && <CircleCheck className="w-6 h-6 text-green-600" />}
-                  {status === 'busy' && <CircleX className="w-6 h-6 text-red-600" />}
-                  {status === 'away' && <Clock className="w-6 h-6 text-yellow-600" />}
-                  {status === 'ringing' && <BellRing className="w-6 h-6 text-blue-600" />}
-                  {status === 'paused' && <Pause className="w-6 h-6 text-purple-600" />}
-                  {status === 'offline' && <User className="w-6 h-6 text-gray-600" />}
-                  <div>
-                    <p className="text-sm text-gray-500 capitalize">{status}</p>
-                    <p className="text-2xl font-bold text-gray-900">{count}</p>
-                  </div>
-                </div>
-              )
-            ))}
-          </div>
-          <div className="mt-6 pt-4 border-t border-gray-300 text-center">
-            <p className="text-lg font-bold text-gray-800">Total Agents: {agentSummary.total}</p>
-          </div>
-        </div>
-
-        {/* Agent List Section (Below the summary - now cards with dark theme) */}
-        <div className="bg-gray-800 rounded-xl shadow-lg p-6"> {/* Dark background for this section */}
-          {/* Header */}
-          <div className="flex justify-between items-center text-gray-200 mb-6 pb-4 border-b border-gray-700"> {/* Darker header text and border */}
-            <h2 className="text-2xl font-semibold flex items-center">
-              <Activity className="w-6 h-6 mr-3 text-blue-400" /> Agent Status Details
-            </h2>
-            <div className="flex gap-4">
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-7xl mx-auto space-y-6">
+        {/* Header */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center">
+                <Users className="w-8 h-8 mr-3 text-indigo-600" />
+                Agent Dashboard
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Monitor agent status and performance in real-time
+              </p>
+            </div>
+            <div className="flex gap-3">
               <button
                 onClick={fetchAgents}
-                className="relative overflow-hidden group bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2.5 rounded-xl shadow-md flex items-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400"
               >
-                <span className="absolute left-0 top-0 w-full h-full bg-indigo-400 opacity-0 group-active:opacity-20 transition-opacity duration-200" />
-                <Activity className="mr-2 text-lg" /> Refresh
+                <Activity className="mr-2 w-4 h-4" /> Refresh
               </button>
               <button
                 onClick={handleOpenModal}
-                className="relative overflow-hidden group bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl shadow-md flex items-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg shadow-md flex items-center font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-emerald-400"
               >
-                <span className="absolute left-0 top-0 w-full h-full bg-emerald-400 opacity-0 group-active:opacity-20 transition-opacity duration-200" />
-                <PlusCircle className="mr-2 text-lg" /> Add +
+                <PlusCircle className="mr-2 w-4 h-4" /> Add Agent
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Agent List as Cards */}
-          <div className="space-y-4">
-            {paginatedAgents.map((agent) => {
-              const displayStatus = mapAgentStatusForDisplay(agent.deviceState);
-              // Dummy values for calls, duration, rating as they are not in Agent interface
-              const dummyCalls = Math.floor(Math.random() * 30);
-              const dummyDuration = `${Math.floor(Math.random() * 10)}:${Math.floor(Math.random() * 60).toString().padStart(2, '0')}`;
-              const dummyRating = (Math.random() * (5 - 3) + 3).toFixed(1); // Between 3.0 and 5.0
+        {/* Agent Status Summary */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2 text-indigo-600" />
+            Agent Overview
+          </h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {Object.entries(agentSummary).map(
+              ([status, count]) =>
+                status !== "total" && (
+                  <div
+                    key={status}
+                    className="bg-gray-50 rounded-lg p-4 text-center"
+                  >
+                    <div className="flex justify-center mb-2">
+                      {getStatusIcon(status, status)}
+                    </div>
+                    <p className="text-sm text-gray-500 capitalize">{status}</p>
+                    <p className="text-2xl font-bold text-gray-900">{count}</p>
+                  </div>
+                )
+            )}
+          </div>
+          <div className="mt-6 pt-4 border-t border-gray-200 text-center">
+            <p className="text-lg font-bold text-gray-800">
+              Total Agents: {agentSummary.total}
+            </p>
+          </div>
+        </div>
 
-              return (
-                <div
-                  key={agent.exten}
-                  className="bg-gray-700 rounded-lg p-4 flex items-center justify-between transition-all duration-200 hover:bg-gray-600 cursor-pointer" // Darker card background
-                >
-                  <div className="flex items-center space-x-4">
-                    <User className="w-8 h-8 text-gray-400" /> {/* Icon color for dark theme */}
-                    <div>
-                      <p className="text-lg font-medium text-gray-100"> {/* Text color for dark theme */}
-                        {agent.exten} <span className="text-gray-400">[{agent.exten}]</span> {/* Extension in brackets */}
+        {/* Controls */}
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="flex justify-between items-center">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setViewMode("cards")}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  viewMode === "cards"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Cards View
+              </button>
+              <button
+                onClick={() => setViewMode("table")}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                  viewMode === "table"
+                    ? "bg-indigo-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                Table View
+              </button>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStatsView("daily")}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center ${
+                  statsView === "daily"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Calendar className="w-4 h-4 mr-1" />
+                Daily Stats
+              </button>
+              <button
+                onClick={() => setStatsView("overall")}
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center ${
+                  statsView === "overall"
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <Globe className="w-4 h-4 mr-1" />
+                Overall Stats
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Agent List */}
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <h2 className="text-2xl font-semibold text-gray-800 mb-6 flex items-center">
+            <Activity className="w-6 h-6 mr-3 text-indigo-600" />
+            Agent Details ({statsView === "daily" ? "Daily" : "Overall"} Stats)
+          </h2>
+
+          {viewMode === "cards" ? (
+            // Cards View
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {paginatedAgents.map((agent) => {
+                const stats =
+                  statsView === "daily" ? agent.dailyStats : agent.overallStats;
+
+                return (
+                  <div
+                    key={agent.id}
+                    className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200"
+                  >
+                    {/* Agent Header */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
+                          <User className="w-6 h-6 text-indigo-600" />
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-gray-900">
+                            {agent.full_name}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            Ext: {agent.extension}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusBadge(
+                          agent.status
+                        )}`}
+                      >
+                        {agent.status}
+                      </span>
+                    </div>
+
+                    {/* Live Status */}
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <p className="text-sm text-gray-600">
+                        Live Status:{" "}
+                        <span className="font-medium">{agent.liveStatus}</span>
                       </p>
-                      <div className="flex items-center space-x-2 text-sm">
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getStatusBadge(
-                            displayStatus
-                          )}`}
-                        >
-                          {displayStatus}
+                      <p className="text-xs text-gray-500 mt-1">
+                        Device: {agent.deviceState}
+                      </p>
+                      {agent.contacts && (
+                        <p className="text-xs text-gray-500 mt-1 truncate">
+                          Contact: {agent.contacts}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <Phone className="w-4 h-4 mr-1" />
+                          Total Calls
                         </span>
-                        <span className="text-gray-400">{dummyCalls} calls</span> {/* Text color for dark theme */}
+                        <span className="font-semibold text-green-600">
+                          {stats.totalCalls}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <CircleCheck className="w-4 h-4 mr-1" />
+                          Answered Calls
+                        </span>
+                        <span className="font-semibold text-emerald-600">
+                          {stats.answeredCalls}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <PhoneOff className="w-4 h-4 mr-1" />
+                          Missed Calls
+                        </span>
+                        <span className="font-semibold text-red-600">
+                          {stats.missedCalls}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <Timer className="w-4 h-4 mr-1" />
+                          Avg Talk Time
+                        </span>
+                        <span className="font-semibold text-blue-600">
+                          {formatTime(stats.averageTalkTime)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <Clock className="w-4 h-4 mr-1" />
+                          Avg Hold Time
+                        </span>
+                        <span className="font-semibold text-orange-600">
+                          {formatTime(stats.averageHoldTime)}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="flex items-center text-sm text-gray-600">
+                          <BellRing className="w-4 h-4 mr-1" />
+                          Avg Ring Time
+                        </span>
+                        <span className="font-semibold text-purple-600">
+                          {formatTime(stats.averageRingTime)}
+                        </span>
+                      </div>
+
+                      {/* Success Rate */}
+                      <div className="pt-2 border-t border-gray-200">
+                        <div className="flex justify-between items-center">
+                          <span className="flex items-center text-sm text-gray-600">
+                            <TrendingUp className="w-4 h-4 mr-1" />
+                            Answer Rate
+                          </span>
+                          <span className="font-semibold text-indigo-600">
+                            {stats.totalCalls > 0
+                              ? `${(
+                                  (stats.answeredCalls / stats.totalCalls) *
+                                  100
+                                ).toFixed(1)}%`
+                              : "0%"}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4">
-                    <span className="text-xl font-semibold text-gray-100">{dummyDuration}</span> {/* Text color for dark theme */}
-                    <div className="flex items-center text-gray-400"> {/* Text color for dark theme */}
-                      <Star className="w-5 h-5 text-yellow-400 mr-1" fill="currentColor" /> {/* Star color */}
-                      <span className="text-lg font-medium">{dummyRating}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            // Table View
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Agent
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total Calls
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Answered
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Missed
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Answer Rate
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {paginatedAgents.map((agent) => {
+                    const stats =
+                      statsView === "daily"
+                        ? agent.dailyStats
+                        : agent.overallStats;
+                    const successRate =
+                      stats.totalCalls > 0
+                        ? (
+                            ((stats.totalCalls - stats.missedCalls) /
+                              stats.totalCalls) *
+                            100
+                          ).toFixed(1)
+                        : "0";
 
-          {/* Pagination Controls */}
+                    return (
+                      <tr key={agent.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                              <User className="w-5 h-5 text-indigo-600" />
+                            </div>
+                            <div className="ml-4">
+                              <div className="text-sm font-medium text-gray-900">
+                                {agent.full_name}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                Ext: {agent.extension}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(
+                              agent.status
+                            )}`}
+                          >
+                            {agent.status}
+                          </span>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {agent.liveStatus}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {stats.totalCalls}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-emerald-600 font-medium">
+                          {stats.answeredCalls}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">
+                          {stats.missedCalls}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="text-sm font-medium text-gray-900">
+                              {stats.totalCalls > 0
+                                ? `${(
+                                    (stats.answeredCalls / stats.totalCalls) *
+                                    100
+                                  ).toFixed(1)}%`
+                                : "0%"}
+                            </div>
+                            <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                              <div
+                                className="bg-green-500 h-2 rounded-full"
+                                style={{
+                                  width: `${
+                                    stats.totalCalls > 0
+                                      ? (
+                                          (stats.answeredCalls /
+                                            stats.totalCalls) *
+                                          100
+                                        ).toFixed(1)
+                                      : 0
+                                  }%`,
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-2 mt-6">
+            <div className="flex justify-center items-center gap-2 mt-8">
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-3 py-1 rounded-lg bg-gray-600 text-gray-200 hover:bg-gray-500 disabled:opacity-50" // Darker pagination buttons
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
-                Prev
+                Previous
               </button>
+
               {Array.from({ length: totalPages }, (_, i) => (
                 <button
                   key={i + 1}
                   onClick={() => handlePageChange(i + 1)}
-                  className={`px-3 py-1 rounded-lg ${currentPage === i + 1
-                    ? "bg-indigo-600 text-white"
-                    : "bg-gray-700 text-gray-200 hover:bg-gray-600" // Darker pagination buttons
-                    }`}
+                  className={`px-4 py-2 rounded-lg transition-all duration-200 ${
+                    currentPage === i + 1
+                      ? "bg-indigo-600 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
                 >
                   {i + 1}
                 </button>
               ))}
+
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-3 py-1 rounded-lg bg-gray-600 text-gray-200 hover:bg-gray-500 disabled:opacity-50" // Darker pagination buttons
+                className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
               >
                 Next
               </button>
@@ -346,21 +672,24 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Modal Popup for Registration Form */}
+        {/* Modal for Adding Agent */}
         {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
-            <div className="relative w-full max-w-lg mx-auto bg-white/90 rounded-2xl border border-gray-200 p-8 animate-slide-up">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="relative w-full max-w-lg mx-auto bg-white rounded-2xl shadow-2xl p-8 m-4">
               <button
                 onClick={handleCloseModal}
-                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-white/70 rounded-full p-2 shadow focus:outline-none focus:ring-2 focus:ring-red-300 transition"
+                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 bg-gray-100 rounded-full p-2 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-red-300"
                 aria-label="Close"
               >
-                <Trash className="text-xl" /> {/* Using Trash icon for close */}
+                <Trash className="w-5 h-5" />
               </button>
-              <h3 className="text-2xl font-bold text-center mb-6 text-indigo-800 drop-shadow">
+              <h3 className="text-2xl font-bold text-center mb-6 text-gray-800">
                 Register New Agent
               </h3>
-              <RegistrationForm />
+              {/* Add your registration form component here */}
+              <div className="text-center text-gray-500">
+                Registration form component goes here
+              </div>
             </div>
           </div>
         )}
@@ -369,4 +698,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Agent;
