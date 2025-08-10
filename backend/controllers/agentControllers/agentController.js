@@ -1,8 +1,8 @@
-const Ex = require('../../models/extension'); // Adjust path as necessary to your Mongoose model
-const Agent = require('../../models/agent');
-const bcrypt = require('bcryptjs');
-const { reloadAsterisk } = require('../../utils/sudo');
-const { generateAndWritePjsipConfigs } = require('./pjsipConfigGenerators'); // Import new utility
+const Ex = require("../../models/extension"); // Adjust path as necessary to your Mongoose model
+const Agent = require("../../models/agent");
+const bcrypt = require("bcryptjs");
+const { reloadAsterisk } = require("../../utils/sudo");
+const { generateAndWritePjsipConfigs } = require("./pjsipConfigGenerators"); // Import new utility
 // const { generateAndWriteDialplan } = require('./utils/asteriskDialplanGenerator'); // Import dialplan utility
 
 // @desc    Create a new PJSIP Extension
@@ -11,11 +11,14 @@ const { generateAndWritePjsipConfigs } = require('./pjsipConfigGenerators'); // 
 const createExtension = async (req, res) => {
   try {
     // Check if extension already exists
-    const existing = await Ex.findOne({ userExtension: req.body.userExtension });
+    const existing = await Ex.findOne({
+      userExtension: req.body.userExtension,
+    });
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: 'Extension number already exists. Please choose a different one.'
+        message:
+          "Extension number already exists. Please choose a different one.",
       });
     }
 
@@ -34,7 +37,9 @@ const createExtension = async (req, res) => {
     console.log(req.body.secret);
     // If agent credentials are provided, create agent for authentication
     if (req.body.userExtension && req.body.secret) {
-      const existingAgent = await Agent.findOne({ username: req.body.userExtension });
+      const existingAgent = await Agent.findOne({
+        username: req.body.userExtension,
+      });
       console.log(existingAgent);
       if (existingAgent) {
         // Optionally update agent info, or skip creation
@@ -43,7 +48,7 @@ const createExtension = async (req, res) => {
           username: req.body.userExtension,
           password: hashedPassword,
           name: req.body.displayName ?? "Agent " + req.body.userExtension,
-          email: req.body.email || ''
+          email: req.body.email || "",
         });
         await agent.save();
       }
@@ -61,23 +66,25 @@ const createExtension = async (req, res) => {
     // Respond with the newly created extension and a success message
     return res.status(201).json({
       success: true,
-      message: 'Extension and agent created successfully. Asterisk configurations reloaded!',
-      extension: savedExtension
+      message:
+        "Extension and agent created successfully. Asterisk configurations reloaded!",
+      extension: savedExtension,
     });
   } catch (error) {
-    console.error('Error creating extension or configuring Asterisk:', error);
+    console.error("Error creating extension or configuring Asterisk:", error);
     // Handle duplicate key errors specifically for unique fields (though we removed unique:true, good to keep for other unique fields)
     if (error.code === 11000) {
       return res.status(409).json({
         status: 409,
         message: "A record with this unique identifier already exists.",
-        error: error.message
+        error: error.message,
       });
     }
     return res.status(500).json({
       success: false,
-      message: 'Error creating extension or configuring Asterisk: ' + error.message,
-      error: error.message
+      message:
+        "Error creating extension or configuring Asterisk: " + error.message,
+      error: error.message,
     });
   }
 };
@@ -91,16 +98,13 @@ const getAllExtensions = async (req, res) => {
     const extensions = await Ex.find({});
 
     // Respond with the list of extensions
-    return res.status(200).json(
-      extensions
-    );
-  }
-  catch (error) {
+    return res.status(200).json(extensions);
+  } catch (error) {
     // Handle errors during retrieval
     return res.status(500).json({
       success: false,
-      message: 'Error retrieving extensions',
-      error: error.message
+      message: "Error retrieving extensions",
+      error: error.message,
     });
   }
 };
@@ -111,28 +115,30 @@ const getAllExtensions = async (req, res) => {
 const getExtensionByUserExtension = async (req, res) => {
   try {
     // Find an extension by its userExtension
-    const extension = await Ex.findOne({ userExtension: req.params.userExtension });
+    const extension = await Ex.findOne({
+      userExtension: req.params.userExtension,
+    });
 
     // If no extension is found, return 404 Not Found
     if (!extension) {
       return res.status(404).json({
         success: false,
-        message: 'Extension not found.'
+        message: "Extension not found.",
       });
     }
 
     // Respond with the found extension
     return res.status(200).json({
       success: true,
-      message: 'Extension retrieved successfully!',
-      extension: extension
+      message: "Extension retrieved successfully!",
+      extension: extension,
     });
   } catch (error) {
     // Handle errors during retrieval
     return res.status(500).json({
       success: false,
-      message: 'Error retrieving extension',
-      error: error.message
+      message: "Error retrieving extension",
+      error: error.message,
     });
   }
 };
@@ -155,7 +161,7 @@ const updateExtension = async (req, res) => {
     if (!updatedExtension) {
       return res.status(404).json({
         success: false,
-        message: 'Extension not found.'
+        message: "Extension not found.",
       });
     }
 
@@ -169,33 +175,38 @@ const updateExtension = async (req, res) => {
     // Respond with the updated extension
     return res.status(200).json({
       success: true,
-      message: 'Extension updated successfully and Asterisk configurations reloaded!',
-      extension: updatedExtension
+      message:
+        "Extension updated successfully and Asterisk configurations reloaded!",
+      extension: updatedExtension,
     });
   } catch (error) {
     // Handle validation errors or other update errors
-    console.error('Error updating extension or configuring Asterisk:', error);
+    console.error("Error updating extension or configuring Asterisk:", error);
     return res.status(500).json({
       success: false,
-      message: 'Error updating extension: ' + error.message,
-      error: error.message
+      message: "Error updating extension: " + error.message,
+      error: error.message,
     });
   }
 };
-
-
 
 const getAgentById = async (req, res) => {
   try {
     const { id } = req.params;
     const agent = await Ex.findById(id);
     if (!agent) {
-      return res.status(404).json({ success: false, message: 'Agent not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: "Agent not found" });
     }
     return res.status(200).json(agent);
   } catch (error) {
-    console.error('Error fetching agent by ID:', error);
-    return res.status(500).json({ success: false, message: 'Error fetching agent', error: error.message });
+    console.error("Error fetching agent by ID:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error fetching agent",
+      error: error.message,
+    });
   }
 };
 

@@ -128,6 +128,90 @@ const updateAgentStatusRoute = asyncHandler(async (req, res) => {
   res.json({ message: "Agent status updated.", agent });
 });
 
+// Update agent/extension information
+const updateAgentInfo = asyncHandler(async (req, res) => {
+  const { extension } = req.params;
+  const { displayName, secret } = req.body;
+  
+  if (!extension) {
+    return errorResponse(res, 400, "Extension is required.");
+  }
+
+  // Update in database
+  const updateData = {};
+  if (displayName) updateData.displayName = displayName;
+  if (secret) updateData.secret = secret;
+
+  const updatedExtension = await Extension.findOneAndUpdate(
+    { userExtension: extension },
+    updateData,
+    { new: true }
+  );
+
+  if (!updatedExtension) {
+    return errorResponse(res, 404, "Extension not found.");
+  }
+
+  // 🔄 REFRESH AGENT STATE - Update agent info in real-time tracking
+  const { refreshAgentState } = require('./agentControllers/realTimeAgent');
+  await refreshAgentState(global.io);
+
+  res.json({
+    success: true,
+    message: "Agent information updated successfully.",
+    agent: updatedExtension
+  });
+});
+
+// Create new agent/extension
+const createAgent = asyncHandler(async (req, res) => {
+  const { userExtension, displayName, secret } = req.body;
+  
+  if (!userExtension || !displayName || !secret) {
+    return errorResponse(res, 400, "userExtension, displayName, and secret are required.");
+  }
+
+  // Check if extension already exists
+  const existing = await Extension.findOne({ userExtension });
+  if (existing) {
+    return errorResponse(res, 409, "Extension already exists.");
+  }
+
+  // Create new extension
+  const newExtension = new Extension({
+    userExtension,
+    displayName,
+    secret
+  });
+
+  await newExtension.save();
+
+  // Add to PJSIP configuration if needed
+  try {
+    addAOR(userExtension);
+    addAUTH({
+      type: "auth",
+      auth_type: "userpass",
+      password: secret,
+      username: userExtension,
+    });
+    reloadPJSIP();
+  } catch (pjsipError) {
+    console.error("PJSIP configuration error:", pjsipError.message);
+    // Continue anyway - database record is created
+  }
+
+  // 🔄 REFRESH AGENT STATE - Add new agent to real-time tracking
+  const { refreshAgentState } = require('./agentControllers/realTimeAgent');
+  await refreshAgentState(global.io);
+
+  res.status(201).json({
+    success: true,
+    message: "Agent created successfully.",
+    agent: newExtension
+  });
+});
+
 // Get all agents (with basic info, no passwords)
 
 // Get all extensions using AMI (PJSIPShowEndpoints)
@@ -228,7 +312,7 @@ async function getAgentByNumber(req, res, next) {
 const deleteSingleAgents = asyncHandler(async (req, res) => {
   const { extension } = req.body;
   if (!extension) return errorResponse(res, 400, "extension is required.");
-  const extDoc = await Extension.findOneAndDelete({ extension });
+  const extDoc = await Extension.findOneAndDelete({ userExtension: extension });
   if (!extDoc) return errorResponse(res, 404, "Extension not found.");
   try {
     removeUser(extension);
@@ -240,6 +324,11 @@ const deleteSingleAgents = asyncHandler(async (req, res) => {
       "Failed to remove extension in mini server: " + err.message
     );
   }
+
+  // 🔄 REFRESH AGENT STATE - Remove deleted agent from real-time tracking
+  const { refreshAgentState } = require('./agentControllers/realTimeAgent');
+  await refreshAgentState(global.io);
+
   res.json({ message: "Extension deleted successfully." });
 });
 
@@ -285,41 +374,92 @@ const getRealTimeAgentStatus = async (req, res) => {
         .json({ error: "Asterisk AMI is not connected yet." });
     }
 
-    // Import state from amiConfig
-    const { state } = require("../config/amiConfig");
+    // Import state from realTimeAgent
+    const { state } = require("./agentControllers/realTimeAgent");
     
     // Get enriched agent data similar to the socket emission
-    const agents = await Extension.find({}, { extension: 1, first_name: 1, last_name: 1, _id: 1 }).lean();
+    const agents = await Extension.find({}, { userExtension: 1, displayName: 1, _id: 1 }).lean();
     const agentDataMap = {};
     agents.forEach(agent => {
-      agentDataMap[agent.extension] = {
+      // Parse displayName to get first and last name
+      const nameParts = agent.displayName ? agent.displayName.split(' ') : ['Agent', agent.userExtension];
+      const firstName = nameParts[0] || 'Agent';
+      const lastName = nameParts.slice(1).join(' ') || agent.userExtension;
+      
+      agentDataMap[agent.userExtension] = {
         id: agent._id,
-        extension: agent.extension,
-        first_name: agent.first_name,
-        last_name: agent.last_name,
-        full_name: `${agent.first_name} ${agent.last_name}`
+        extension: agent.userExtension,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: agent.displayName || `Agent ${agent.userExtension}`,
+        displayName: agent.displayName
       };
     });
 
-    // Map real-time status with database info
-    const enrichedAgents = Object.values(state.agentStatus || {}).map(agentStatus => {
-      const agentData = agentDataMap[agentStatus.extension] || {};
-      return {
-        id: agentData.id || null,
-        extension: agentStatus.extension,
-        first_name: agentData.first_name || 'Unknown',
-        last_name: agentData.last_name || 'Agent',
-        full_name: agentData.full_name || `Agent ${agentStatus.extension}`,
-        status: agentStatus.status,
-        state: agentStatus.state,
-        contacts: agentStatus.contacts,
-        deviceState: agentStatus.deviceState,
-        lastUpdated: agentStatus.lastUpdated,
-        // Include AMI data for debugging if needed
-        aor: agentStatus.aor,
-        transport: agentStatus.transport
-      };
-    });
+    console.log(`🔍 Found ${agents.length} agents in database`);
+    console.log(`📊 Found ${Object.keys(state.agents || {}).length} agents in realTimeAgent state`);
+
+    // If no agents in realTimeAgent state, try to load them
+    if (Object.keys(state.agents || {}).length === 0) {
+      console.log('⚠️ No agents in realTimeAgent state, loading from database...');
+      const { getOrCreateAgent } = require("./agentControllers/realTimeAgent");
+      
+      for (const agent of agents) {
+        await getOrCreateAgent(agent.userExtension);
+      }
+      console.log(`✅ Loaded ${Object.keys(state.agents).length} agents into realTimeAgent state`);
+    }
+
+    // Map real-time status with database info using realTimeAgent state
+    const enrichedAgents = [];
+    
+    for (const agent of agents) {
+      const realtimeAgent = state.agents[agent.userExtension];
+      const nameParts = agent.displayName ? agent.displayName.split(' ') : ['Agent', agent.userExtension];
+      const firstName = nameParts[0] || 'Agent';
+      const lastName = nameParts.slice(1).join(' ') || agent.userExtension;
+      
+      enrichedAgents.push({
+        id: agent._id,
+        extension: agent.userExtension,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: agent.displayName || `Agent ${agent.userExtension}`,
+        status: realtimeAgent ? (realtimeAgent.deviceState === 'NOT_INUSE' ? 'online' : 
+                                realtimeAgent.deviceState === 'UNAVAILABLE' ? 'offline' : 'busy') : 'offline',
+        deviceState: realtimeAgent ? realtimeAgent.deviceState : 'UNAVAILABLE',
+        liveStatus: realtimeAgent ? realtimeAgent.liveStatus : 'Unavailable',
+        contacts: realtimeAgent ? realtimeAgent.contacts : '',
+        transport: realtimeAgent ? realtimeAgent.transport : '',
+        lastActivity: realtimeAgent ? realtimeAgent.lastActivity : null,
+        dailyStats: realtimeAgent ? {
+          totalCalls: realtimeAgent.totalCallsToday,
+          missedCalls: realtimeAgent.missedCallsToday,
+          averageTalkTime: realtimeAgent.averageTalkTimeToday,
+          averageWrapTime: realtimeAgent.averageWrapTimeToday,
+          longestIdleTime: realtimeAgent.longestIdleTimeToday,
+        } : {
+          totalCalls: 0,
+          missedCalls: 0,
+          averageTalkTime: 0,
+          averageWrapTime: 0,
+          longestIdleTime: 0,
+        },
+        overallStats: realtimeAgent ? {
+          totalCalls: realtimeAgent.totalCallsOverall,
+          missedCalls: realtimeAgent.missedCallsOverall,
+          averageTalkTime: realtimeAgent.averageTalkTimeOverall,
+          averageWrapTime: realtimeAgent.averageWrapTimeOverall,
+          longestIdleTime: realtimeAgent.longestIdleTimeOverall,
+        } : {
+          totalCalls: 0,
+          missedCalls: 0,
+          averageTalkTime: 0,
+          averageWrapTime: 0,
+          longestIdleTime: 0,
+        }
+      });
+    }
 
     res.json({
       success: true,
@@ -331,8 +471,69 @@ const getRealTimeAgentStatus = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+// Manual trigger for agent status emission (for debugging)
+const triggerAgentStatusEmission = async (req, res) => {
+  try {
+    console.log('🔧 Manual trigger: Emitting agent status...');
+    
+    const { emitAgentStatusOnly } = require('./agentControllers/realTimeAgent');
+    
+    // Get io from global or app locals
+    const io = req.app.get('io') || global.io;
+    
+    if (!io) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Socket.IO instance not available' 
+      });
+    }
+    
+    await emitAgentStatusOnly(io);
+    
+    res.json({
+      success: true,
+      message: 'Agent status emission triggered successfully',
+      timestamp: new Date()
+    });
+  } catch (error) {
+    console.error('❌ Error triggering agent status emission:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+// Manual refresh of agent state cache (for administrators)
+const refreshAgentCache = asyncHandler(async (req, res) => {
+  try {
+    const { refreshAgentState, reloadAllAgents } = require('./agentControllers/realTimeAgent');
+    const { forceReload } = req.query;
+    
+    if (forceReload === 'true') {
+      // Force complete reload from database
+      await reloadAllAgents(global.io);
+      res.json({
+        success: true,
+        message: 'Agent cache completely reloaded from database',
+        timestamp: new Date()
+      });
+    } else {
+      // Smart refresh - sync with database changes
+      await refreshAgentState(global.io);
+      res.json({
+        success: true,
+        message: 'Agent cache refreshed and synced with database',
+        timestamp: new Date()
+      });
+    }
+  } catch (error) {
+    console.error('❌ Error refreshing agent cache:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 module.exports = {
   updateAgentStatusRoute,
+  updateAgentInfo,
+  createAgent,
   getAllAgents,
   deleteSingleAgents,
   getAllAgentCallStatus,
@@ -341,4 +542,6 @@ module.exports = {
   getAgentsFromDatabase,
   getAgentByNumber,
   getRealTimeAgentStatus,
+  triggerAgentStatusEmission,
+  refreshAgentCache,
 };

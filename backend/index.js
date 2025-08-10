@@ -1,9 +1,17 @@
-require('dotenv').config();
+require("dotenv").config();
 const http = require("http");
 const { Server } = require("socket.io");
 const AmiClient = require("asterisk-ami-client");
 const app = require("./app"); // Your Express app
-const { setupAmiEventListeners, state, emitAgentStatus } = require('./config/amiConfig');
+const { setupAmiEventListeners, state } = require("./config/amiConfig");
+const {
+  setupAgentListeners,
+  emitAgentStatusOnly,
+  state: agentState,
+} = require("./controllers/agentControllers/realTimeAgent");
+
+// Import queue statistics scheduler
+const { scheduleQueueStatsCalculation } = require("./utils/queueStatsScheduler");
 
 // Import the setup function and state from our refactored AMI handler
 
@@ -26,19 +34,23 @@ const io = new Server(server, {
 // --- AMI Connection and Application Logic ---
 const ami = new AmiClient();
 
-// Make AMI globally accessible
+// Make AMI and Socket.IO globally accessible
 global.ami = ami;
 global.amiReady = false;
+global.io = io;
 
 // Connect to AMI, then set up all event listeners and socket connections.
-ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
+ami
+  .connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
   .then(() => {
     console.log("✅ [AMI] Connected successfully!");
     global.amiReady = true;
 
     // CRITICAL: Set up the AMI event listeners ONCE after a successful connection.
     setupAmiEventListeners(ami, io);
-
+    
+    // Initialize queue statistics scheduler
+    scheduleQueueStatsCalculation();
     // Handle individual client (browser) connections.
     io.on("connection", (socket) => {
       console.log(`🔌 Client connected: ${socket.id}`);
@@ -47,11 +59,15 @@ ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
       // This ensures their dashboard is populated without waiting for a new event.
       socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
       socket.emit("queueMembers", state.queueMembers);
-      
+
       // Send current enriched agent status if available
-      if (Object.keys(state.agentStatus).length > 0) {
-        emitAgentStatus(socket); // Send to this specific socket
+      if (Object.keys(agentState.agents).length > 0) {
+        emitAgentStatusOnly(socket); // Send to this specific socket
       }
+
+      // Send current queue statistics if available
+      const { emitAllQueueStats } = require("./controllers/queueControllers/realTimeQueueStats");
+      emitAllQueueStats(socket);
 
       // Handle request for current agent list - now uses enriched data
       socket.on("requestAgentList", () => {
@@ -62,23 +78,41 @@ ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
           }
 
           // Send the enriched agent data immediately from memory
-          emitAgentStatus(socket);
-          
+          emitAgentStatusOnly(socket);
         } catch (error) {
           socket.emit("agentListError", { error: error.message });
+        }
+      });
+
+      // Handle request for current queue statistics
+      socket.on("requestAllQueueStats", () => {
+        try {
+          if (!global.amiReady) {
+            socket.emit("queueStatsError", { error: "AMI not connected" });
+            return;
+          }
+
+          // Send current queue statistics
+          const { emitAllQueueStats } = require("./controllers/queueControllers/realTimeQueueStats");
+          emitAllQueueStats(socket);
+        } catch (error) {
+          console.error("Error sending queue stats:", error);
+          socket.emit("queueStatsError", { error: error.message });
         }
       });
 
       // Handle events received FROM this specific client.
       socket.on("hangupCall", (linkedId) => {
         if (!linkedId) return;
-        
-        console.log(`Client ${socket.id} requested hangup for call: ${linkedId}`);
+
+        console.log(
+          `Client ${socket.id} requested hangup for call: ${linkedId}`
+        );
         const call = state.ongoingCalls[linkedId];
 
         if (call && call.channels) {
           // Hang up every channel associated with the call
-          call.channels.forEach(channel => {
+          call.channels.forEach((channel) => {
             ami.action({ Action: "Hangup", Channel: channel, Cause: "16" });
           });
         } else {
@@ -90,14 +124,15 @@ ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
         console.log(`🔌 Client disconnected: ${socket.id}`);
       });
     });
-
   })
   .catch((err) => {
-    console.error("❌ [AMI] Connection failed. The application cannot start.", err);
+    console.error(
+      "❌ [AMI] Connection failed. The application cannot start.",
+      err
+    );
     // Exit the process if we can't connect to Asterisk, as the app is non-functional.
     process.exit(1);
   });
-
 
 // --- Start Server ---
 server.listen(PORT, () => {

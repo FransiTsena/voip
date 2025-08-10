@@ -16,6 +16,13 @@ const callLogSchema = new mongoose.Schema({
     channels: [{ type: String }],
     direction: { type: String, enum: ['inbound', 'outbound'] },
     queue: { type: String },
+    queueName: { type: String },
+    waitTime: { type: Number }, // time spent waiting in queue (seconds)
+    holdTime: { type: Number }, // time spent on hold during call (seconds)
+    ringTime: { type: Number }, // time spent ringing before answer (seconds)
+    agentExtension: { type: String }, // extension of agent who handled the call
+    agentName: { type: String }, // name of agent who handled the call
+    transferCount: { type: Number, default: 0 }, // number of times call was transferred
     // Absolute path to the call recording on the server (set by AMI when MixMonitor starts)
     recordingPath: { type: String },
     extra: { type: mongoose.Schema.Types.Mixed }, // for any additional info

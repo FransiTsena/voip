@@ -23,25 +23,36 @@ async function loadQueueNamesMap() {
   queueNameMap = map;
 }
 
-// Agent mapping similar to queue mapping
+// Agent mapping similar to queue mapping - using Extension model for frontend compatibility
 let agentDataMap = {};
 async function loadAgentDataMap() {
-  const agents = await Agent.find(
+  const Extension = require("../models/extension");
+  const extensions = await Extension.find(
     {},
-    { username: 1, name: 1,  _id: 1 }
+    { userExtension: 1, displayName: 1, _id: 1 }
   ).lean();
-  console.log(agents)
+  console.log("Loading extensions from database:", extensions);
   const map = {};
-  agents.forEach((agent) => {
-    map[agent.extension] = {
-      id: agent._id,
-      extension: agent.username,
-      name:agent.name
+  extensions.forEach((ext) => {
+    // Parse displayName to get first and last name (assuming format "First Last")
+    const nameParts = ext.displayName
+      ? ext.displayName.split(" ")
+      : ["Agent", ext.userExtension];
+    const firstName = nameParts[0] || "Agent";
+    const lastName = nameParts.slice(1).join(" ") || ext.userExtension;
+
+    map[ext.userExtension] = {
+      // Use userExtension as key
+      id: ext._id,
+      extension: ext.userExtension,
+      first_name: firstName,
+      last_name: lastName,
+      full_name: ext.displayName || `Agent ${ext.userExtension}`,
+      displayName: ext.displayName,
     };
   });
   agentDataMap = map;
-  console.log(agentDataMap)
-
+  console.log("Agent data map loaded:", agentDataMap);
 }
 
 // Centralized in-memory state for the application
@@ -82,7 +93,6 @@ async function syncAgentShiftsFromDB() {
   // console.log("Agent shifts synced from DB.");
 }
 // --- AGENT SHIFT TRACKING ---
-
 
 // Use extension number for shift monitoring
 async function startAgentShiftByExtension(extensionNumber) {
@@ -136,7 +146,6 @@ async function startAgentShiftByExtension(extensionNumber) {
           clearTimeout(ongoingShift._pendingEnd);
           delete ongoingShift._pendingEnd;
         }
-
       } else {
         console.log(
           `Resumed ongoing shift for agent username ${extensionNumber}: ${ongoingShift._id}`
@@ -148,7 +157,6 @@ async function startAgentShiftByExtension(extensionNumber) {
     const shift = new Shift({ agentId: agent._id, startTime: new Date() });
     const createdShift = await shift.save();
     state.agentShifts[extensionNumber] = createdShift._id;
-
   } catch (err) {
     console.error("Error starting agent shift:", err.message);
   }
@@ -220,58 +228,24 @@ function emitQueueCallersStatus(io) {
       queue: queueName,
       waitTime: Math.floor((Date.now() - caller.waitStart) / 1000),
     };
-  })
+  });
 
   io.emit("queueStatus", flattened);
 }
 
 /**
- * Emits ALL agents from database with their real-time status mapped.
- * This ensures frontend gets complete agent list (online + offline).
+ * Emits ALL agents from database with their real-time status and stats mapped.
+ * This ensures frontend gets complete agent list (online + offline) with stats.
  * @param {object} ioOrSocket - The Socket.IO server instance or individual socket.
  */
+// Agent status emission is now handled by realTimeAgent.js
+// This function is kept for compatibility but delegates to realTimeAgent
 function emitAgentStatus(ioOrSocket) {
-
-  // Get ALL agents from the database (not just online ones)
-  const allAgents = Object.values(agentDataMap).map((agentData) => {
-    // Check if this agent has real-time status from AMI
-    const realtimeStatus = state.agentStatus[agentData.extension];
-
-    return {
-      id: agentData.id,
-      extension: agentData.extension,
-      name: agentData.name,
-      // Map real-time status or default to offline
-      status: realtimeStatus ? realtimeStatus.status : "offline",
-      state: realtimeStatus ? realtimeStatus.state : "Offline",
-      contacts: realtimeStatus ? realtimeStatus.contacts : null,
-      deviceState: realtimeStatus ? realtimeStatus.deviceState : "UNAVAILABLE",
-      lastUpdated: realtimeStatus ? realtimeStatus.lastUpdated : null,
-      // Include AMI data for debugging if needed (only if online)
-      aor: realtimeStatus ? realtimeStatus.aor : null,
-      transport: realtimeStatus ? realtimeStatus.transport : null,
-    };
-  });
-
-  // Emit in the format your frontend expects
-  const frontendFormat = allAgents.map((agent) => ({
-    ObjectName: agent.extension,
-    Aor: agent.aor,
-    DeviceState: agent.deviceState || "Unavailable",
-    Contacts: agent.contacts,
-    Transport: agent.transport,
-    Auths: agent.aor, // Using aor as auth identifier
-    // Add the enriched data
-    first_name: agent.first_name,
-    last_name: agent.last_name,
-    full_name: agent.full_name,
-    id: agent.id,
-    realtime_status: agent.status,
-  }));
-
-  ioOrSocket.emit("agentStatus", frontendFormat);
-  // Also emit on the event your frontend is listening to
-  ioOrSocket.emit("endpointList", frontendFormat);
+  // Delegate to realTimeAgent system
+  const {
+    emitAgentStatus: realTimeEmitAgentStatus,
+  } = require("../controllers/agentControllers/realTimeAgent");
+  realTimeEmitAgentStatus(ioOrSocket);
 }
 
 // --- CALL LIFECYCLE EVENT HANDLERS ---
@@ -350,7 +324,6 @@ function handleBridgeEnter(event, io, ami) {
 
   // 🆕 NEW: Ensure Linkedid is valid before proceeding
   if (!Linkedid) {
-
     return;
   }
 
@@ -422,6 +395,8 @@ function handleBridgeEnter(event, io, ami) {
         status: "answered",
         callee: bridgeData.connectedLineNum,
         calleeName: bridgeData.connectedLineName,
+        agentExtension: bridgeData.connectedLineNum,
+        agentName: bridgeData.connectedLineName,
         recordingPath: filePath,
       },
       { upsert: true }
@@ -440,6 +415,14 @@ function handleBridgeEnter(event, io, ami) {
   };
 
   io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+}
+
+// --- Bridge Create Handler ---
+function handleBridgeCreate(event, io, ami) {
+  const { BridgeUniqueid } = event;
+  console.log(`Bridge ${BridgeUniqueid} created.`);
+  // Initialize bridge state if needed
+  // This is mainly for logging and debugging
 }
 
 // --- Bridge Destroy Handler ---
@@ -583,7 +566,7 @@ function handleQueueStatusComplete(io) {
 function handleQueueCallerJoin(event, io) {
   // console.log("Queue Mapping:", queueNameMap);
   // console.log("Queue Caller Join Event:", event);
-  const { Queue, Uniqueid, CallerIDNum, Position } = event;
+  const { Queue, Uniqueid, CallerIDNum, Position, Linkedid } = event;
 
   const alreadyExists = state.queueCallers.some((c) => c.id === Uniqueid);
   if (!alreadyExists) {
@@ -592,9 +575,21 @@ function handleQueueCallerJoin(event, io) {
       caller_id: CallerIDNum,
       position: parseInt(Position),
       queue: queueNameMap[Queue] || Queue, // Map number to name here
+      queueId: Queue,
       waitStart: Date.now(),
+      linkedId: Linkedid,
     });
   }
+
+  // Update call log with queue information
+  if (Linkedid) {
+    updateCallLog(Linkedid, {
+      queue: Queue,
+      queueName: queueNameMap[Queue] || Queue,
+      status: 'queued'
+    });
+  }
+
   console.log(
     `📞 Caller ${CallerIDNum} joined queue ${Queue} at position ${Position}`
   );
@@ -603,8 +598,50 @@ function handleQueueCallerJoin(event, io) {
 }
 
 function handleQueueCallerLeave(event, io) {
-  const { Uniqueid } = event;
+  const { Uniqueid, Linkedid } = event;
+  
+  // Find the caller to get wait time before removing
+  const caller = state.queueCallers.find((c) => c.id === Uniqueid);
+  if (caller) {
+    const waitTime = Math.floor((Date.now() - caller.waitStart) / 1000);
+    
+    // Update call log with wait time
+    if (Linkedid || caller.linkedId) {
+      updateCallLog(Linkedid || caller.linkedId, {
+        waitTime: waitTime,
+        status: 'answered' // Assuming leave means answered, abandon event handles abandonment
+      });
+    }
+    
+    console.log(`📞 Caller ${caller.caller_id} left queue ${caller.queueId} after waiting ${waitTime}s`);
+  }
+  
   // Filter out caller by ID from the array (ignore queue)
+  state.queueCallers = state.queueCallers.filter((c) => c.id !== Uniqueid);
+  emitQueueCallersStatus(io);
+}
+
+function handleQueueCallerAbandon(event, io) {
+  const { Uniqueid, Linkedid, Queue } = event;
+  
+  // Find the caller to get wait time before removing
+  const caller = state.queueCallers.find((c) => c.id === Uniqueid);
+  if (caller) {
+    const waitTime = Math.floor((Date.now() - caller.waitStart) / 1000);
+    
+    // Update call log with abandon status and wait time
+    if (Linkedid || caller.linkedId) {
+      updateCallLog(Linkedid || caller.linkedId, {
+        waitTime: waitTime,
+        status: 'abandoned',
+        endTime: new Date()
+      });
+    }
+    
+    console.log(`📞 Caller ${caller.caller_id} abandoned queue ${caller.queueId} after waiting ${waitTime}s`);
+  }
+  
+  // Filter out caller by ID from the array
   state.queueCallers = state.queueCallers.filter((c) => c.id !== Uniqueid);
   emitQueueCallersStatus(io);
 }
@@ -612,7 +649,7 @@ function handleQueueCallerLeave(event, io) {
 // --- ENDPOINT & AGENT STATUS HANDLERS ---
 
 function handleEndpointList(event) {
-  console.log(event)
+  // console.log(event)
   // Track agent status in real-time
   const agentId = event.ObjectName;
   const status = event.State === "Online" ? "online" : "offline";
@@ -641,6 +678,7 @@ function handleEndpointListComplete(event, io) {
 
 // Enhanced: Track agent shift on status change
 async function handleContactStatus(event, io) {
+  console.log("Contact Status", event);
   const { EndpointName, ContactStatus } = event;
   let status = "";
   let reason = "unknown";
@@ -687,8 +725,6 @@ async function handleContactStatus(event, io) {
   }
 }
 
-const handleBridgeCreate = (event) => {};
-
 // --- MAIN SETUP FUNCTION ---
 
 /**
@@ -701,6 +737,22 @@ async function setupAmiEventListeners(ami, io) {
   ami.setMaxListeners(50);
   await loadQueueNamesMap();
   await loadAgentDataMap();
+
+  // Make queue name map globally accessible
+  global.queueNameMap = queueNameMap;
+  global.state = state;
+
+  // Initialize real-time agent tracking with stats
+  const {
+    setupAgentListeners,
+  } = require("../controllers/agentControllers/realTimeAgent");
+  setupAgentListeners(ami, io);
+
+  // Initialize real-time queue statistics tracking
+  const {
+    setupQueueStatsListeners,
+  } = require("../controllers/queueControllers/realTimeQueueStats");
+  setupQueueStatsListeners(ami, io);
   // -- Register all event handlers --
   ami.on("BridgeCreate", (event) => {
     handleBridgeCreate(event, io, ami);
@@ -708,6 +760,10 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io, ami));
   ami.on("BridgeDestroy", handleBridgeDestroy);
 
+
+  ami.on("AgentConnect", (event)=>{
+    console.log(event)
+  })
   ami.on("DialBegin", (event) => handleDialBegin(event, io));
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
@@ -735,7 +791,7 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("QueueStatusComplete", () => handleQueueStatusComplete(io));
   ami.on("QueueCallerJoin", (event) => handleQueueCallerJoin(event, io));
   ami.on("QueueCallerLeave", (event) => handleQueueCallerLeave(event, io));
-  ami.on("QueueCallerAbandon", (event) => handleQueueCallerLeave(event, io)); // Abandon is a type of leave
+  ami.on("QueueCallerAbandon", (event) => handleQueueCallerAbandon(event, io));
 
   // Endpoint/Agent Status Events
   ami.on("EndpointList", handleEndpointList);
