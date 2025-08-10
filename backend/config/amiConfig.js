@@ -804,7 +804,7 @@ async function setupAmiEventListeners(ami, io) {
   // Its logic has been merged into the specific 'Hangup' handler.
 
   // -- Start periodic polling actions --
-  setInterval(() => ami.action({ Action: "QueueStatus" }), 2000);
+  setInterval(() => ami.action({ Action: "QureloadeueStatus" }), 2000);
   setInterval(() => ami.action({ Action: "PJSIPShowEndpoints" }), 5000);
 
   console.log("✅ AMI event listeners registered and ready.");
