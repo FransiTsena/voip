@@ -5,7 +5,6 @@ import {
 import { fetchAgentDailyStats } from '../store/agentStats';
 import { FaPhoneAlt, FaBell, FaUserTag, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { useSIP } from './SIPProvider';
-import { SIPProvider } from './SIPProvider';
 import CallPopup from './CallPopup';
 import useStore from '../store/store';
 import TicketList from './TicketList';
@@ -171,7 +170,7 @@ const Dashboard = () => {
   }
 
   return (
-    <SIPProvider>
+    <>
       {/* Top Bar with agent status controls */}
       <NavBar
         onLogout={handleLogout}
@@ -457,7 +456,7 @@ const Dashboard = () => {
         iceStatus={sip.iceStatus}
         agentStatus={sip.agentStatus}
       />
-    </SIPProvider>
+    </>
   );
 };
 

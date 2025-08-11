@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Search, RotateCcw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Play, Pause, SkipBack, SkipForward, Download, Copy, Headphones } from 'lucide-react';
+import { Search, RotateCcw, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Play, Pause, SkipBack, SkipForward, Download, Copy, Headphones, Calendar, X, SlidersHorizontal } from 'lucide-react';
 import axios from 'axios';
 import baseUrl from '../util/baseUrl';
 
@@ -46,6 +46,10 @@ const CallHistory: React.FC = () => {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [audioState, setAudioState] = useState<AudioState>({ current: 0, duration: 0, playing: false, error: '' });
     const [filters, setFilters] = useState<Filters>({ from: '', to: '', callerId: '', callee: '', onlyWithRecordings: '' });
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [compact, setCompact] = useState(false);
+    const [relativeRange, setRelativeRange] = useState<string>('');
+    const [rangeError, setRangeError] = useState<string>('');
 
     // Persist pageSize preference
     useEffect(() => {
@@ -64,6 +68,31 @@ const CallHistory: React.FC = () => {
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, pageSize, sortBy, sortOrder]);
+
+    // Persist filters & advanced state
+    useEffect(() => {
+        const saved = localStorage.getItem('callHistory.filters');
+        const savedAdv = localStorage.getItem('callHistory.showAdvanced');
+        const savedRel = localStorage.getItem('callHistory.relativeRange');
+        const savedCompact = localStorage.getItem('callHistory.compact');
+        if (saved) {
+            try { const parsed = JSON.parse(saved); setFilters((f: Filters) => ({ ...f, ...parsed })); } catch { /* ignore */ }
+        }
+        if (savedAdv) setShowAdvanced(savedAdv === 'true');
+        if (savedRel) setRelativeRange(savedRel);
+        if (savedCompact) setCompact(savedCompact === 'true');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+    useEffect(() => { localStorage.setItem('callHistory.filters', JSON.stringify(filters)); }, [filters]);
+    useEffect(() => { localStorage.setItem('callHistory.showAdvanced', String(showAdvanced)); }, [showAdvanced]);
+    useEffect(() => { localStorage.setItem('callHistory.relativeRange', relativeRange); }, [relativeRange]);
+    useEffect(() => { localStorage.setItem('callHistory.compact', String(compact)); }, [compact]);
+
+    // Date range validation
+    useEffect(() => {
+        if (filters.from && filters.to && filters.from > filters.to) setRangeError('Start date must be before end date');
+        else setRangeError('');
+    }, [filters.from, filters.to]);
 
     // Debounce search
     useEffect(() => {
@@ -110,10 +139,54 @@ const CallHistory: React.FC = () => {
     const resetFilters = () => {
         setFilters({ from: '', to: '', callerId: '', callee: '', onlyWithRecordings: '' });
         setQ('');
+        setRelativeRange('');
         setSortBy('startTime');
         setSortOrder('desc');
         setPage(1);
+        setShowAdvanced(false);
         fetchData();
+    };
+
+    const applyRelativeRange = (val: string) => {
+        setRelativeRange(val);
+        const now = new Date();
+        let from = '', to = '';
+        if (val === 'today') {
+            const iso = now.toISOString().slice(0, 10); from = iso; to = iso;
+        } else if (val === '7d') {
+            const end = now; const start = new Date(end.getTime() - 6 * 86400000); from = start.toISOString().slice(0, 10); to = end.toISOString().slice(0, 10);
+        } else if (val === '30d') {
+            const end = now; const start = new Date(end.getTime() - 29 * 86400000); from = start.toISOString().slice(0, 10); to = end.toISOString().slice(0, 10);
+        } else if (val === 'thisMonth') {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1); const end = new Date(now.getFullYear(), now.getMonth() + 1, 0); from = start.toISOString().slice(0, 10); to = end.toISOString().slice(0, 10);
+        } else if (val === 'prevMonth') {
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1); const end = new Date(now.getFullYear(), now.getMonth(), 0); from = start.toISOString().slice(0, 10); to = end.toISOString().slice(0, 10);
+        }
+        setFilters((f: Filters) => ({ ...f, from, to }));
+        setPage(1);
+        fetchData();
+    };
+
+    const activeFilterChips = () => {
+        const chips: { key: string; label: string; clear: () => void }[] = [];
+        if (filters.from || filters.to) chips.push({ key: 'range', label: `Date: ${filters.from || '…'} → ${filters.to || '…'}`, clear: () => setFilters((f: Filters) => ({ ...f, from: '', to: '' })) });
+        if (filters.callerId) chips.push({ key: 'callerId', label: `Caller: ${filters.callerId}`, clear: () => setFilters((f: Filters) => ({ ...f, callerId: '' })) });
+        if (filters.callee) chips.push({ key: 'callee', label: `Callee: ${filters.callee}`, clear: () => setFilters((f: Filters) => ({ ...f, callee: '' })) });
+        if (filters.onlyWithRecordings === 'true') chips.push({ key: 'recY', label: 'With recording', clear: () => setFilters((f: Filters) => ({ ...f, onlyWithRecordings: '' })) });
+        if (filters.onlyWithRecordings === 'false') chips.push({ key: 'recN', label: 'Without recording', clear: () => setFilters((f: Filters) => ({ ...f, onlyWithRecordings: '' })) });
+        if (q) chips.push({ key: 'q', label: `Search: ${q}`, clear: () => setQ('') });
+        return chips;
+    };
+
+    const exportCsv = () => {
+        if (!items.length) return;
+        const headers = ['Caller ID', 'Caller Name', 'Callee', 'Status', 'Start Time', 'End Time', 'Duration (s)', 'Has Recording'];
+        const rows = items.map(r => [r.callerId || '', r.callerName || '', r.callee || '', r.status || '', r.startTime, r.endTime || '', r.duration ?? '', r.hasRecording ? 'yes' : 'no']);
+        const csv = [headers, ...rows].map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `call_history_${Date.now()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
     };
 
     const formatDateTime = (d?: string) => (d ? new Date(d).toLocaleString() : '-');
@@ -212,58 +285,124 @@ const CallHistory: React.FC = () => {
                 </div>
             </header>
 
-            {/* Filters Bar */}
-            <form onSubmit={handleSubmit} className="bg-white/80 backdrop-blur border border-gray-200 p-4 sm:p-5 rounded-xl shadow-sm mb-4">
-                <div className="flex flex-wrap items-end gap-4">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 flex-1">
-                        <div>
-                            <label className="block text-sm font-medium">From</label>
-                            <input className="border rounded px-2 py-1" type="date" name="from" value={filters.from} onChange={handleFilterChange} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">To</label>
-                            <input className="border rounded px-2 py-1" type="date" name="to" value={filters.to} onChange={handleFilterChange} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Caller ID</label>
-                            <input className="border rounded px-2 py-1" type="text" name="callerId" value={filters.callerId} onChange={handleFilterChange} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Callee</label>
-                            <input className="border rounded px-2 py-1" type="text" name="callee" value={filters.callee} onChange={handleFilterChange} />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Has Recording</label>
-                            <select className="border rounded px-2 py-1" name="onlyWithRecordings" value={filters.onlyWithRecordings} onChange={handleFilterChange}>
-                                <option value="">All</option>
-                                <option value="true">Only with recordings</option>
-                                <option value="false">Without recordings</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium">Search</label>
-                            <div className="relative">
-                                <Search className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
-                                <input className="border rounded pl-7 pr-2 py-1 w-full" type="text" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Search caller/callee/name/id" />
+            {/* Filters Bar (Enhanced) */}
+            <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 border border-gray-200 p-4 sm:p-5 rounded-xl shadow-sm mb-5 space-y-4 sticky top-0 z-30" aria-label="Call history filters">
+                <div className="flex flex-wrap gap-3 items-start">
+                    {/* Date Range */}
+                    <div className="w-full md:w-auto md:flex-1 min-w-[260px]">
+                        <label className="block text-xs font-semibold tracking-wide text-gray-700 mb-1 uppercase">Date Range</label>
+                        <div className="flex items-stretch gap-2">
+                            <div className="relative flex-1">
+                                <Calendar className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input aria-label="From date" className={`border rounded-lg pl-7 pr-2 py-1.5 w-full text-sm ${rangeError ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400' : ''}`} type="date" name="from" value={filters.from} onChange={(e) => { handleFilterChange(e); setRelativeRange(''); }} />
+                            </div>
+                            <div className="flex items-center text-[11px] font-medium text-gray-500">to</div>
+                            <div className="relative flex-1">
+                                <Calendar className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                <input aria-label="To date" className={`border rounded-lg pl-7 pr-2 py-1.5 w-full text-sm ${rangeError ? 'border-rose-300 focus:border-rose-400 focus:ring-rose-400' : ''}`} type="date" name="to" value={filters.to} onChange={(e) => { handleFilterChange(e); setRelativeRange(''); }} />
                             </div>
                         </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <button type="submit" className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3.5 py-2 rounded-lg shadow hover:bg-indigo-700 transition">
-                            <Search className="w-4 h-4" /> <span>Apply</span>
-                        </button>
-                        <button type="button" onClick={resetFilters} className="inline-flex items-center gap-2 bg-white text-gray-700 px-3.5 py-2 rounded-lg border border-gray-300 hover:bg-gray-50">
-                            <RotateCcw className="w-4 h-4" /> Reset
-                        </button>
-                        <div className="hidden sm:flex items-center gap-1 ml-2">
-                            <span className="text-xs text-gray-500">Quick range:</span>
-                            <button type="button" onClick={() => { const d = new Date(); const iso = d.toISOString().slice(0, 10); setFilters((f: Filters) => ({ ...f, from: iso, to: iso })); setPage(1); fetchData(); }} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50">Today</button>
-                            <button type="button" onClick={() => { const to = new Date(); const from = new Date(to.getTime() - 6 * 24 * 60 * 60 * 1000); setFilters((f: Filters) => ({ ...f, from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) })); setPage(1); fetchData(); }} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50">7d</button>
-                            <button type="button" onClick={() => { const to = new Date(); const from = new Date(to.getTime() - 29 * 24 * 60 * 60 * 1000); setFilters((f: Filters) => ({ ...f, from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) })); setPage(1); fetchData(); }} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50">30d</button>
-                            <button type="button" onClick={() => { setFilters((f: Filters) => ({ ...f, from: '', to: '' })); setPage(1); fetchData(); }} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50">Clear</button>
+                        <div className="mt-2 flex flex-wrap gap-1 items-center">
+                            <select value={relativeRange} onChange={(e) => applyRelativeRange(e.target.value)} className="px-2.5 py-1 text-[11px] rounded-md border border-gray-300 bg-white hover:bg-gray-50 font-medium tracking-wide">
+                                <option value="">Custom range</option>
+                                <option value="today">Today</option>
+                                <option value="7d">Last 7 days</option>
+                                <option value="30d">Last 30 days</option>
+                                <option value="thisMonth">This month</option>
+                                <option value="prevMonth">Previous month</option>
+                            </select>
+                            {(filters.from || filters.to) && (
+                                <button type="button" onClick={() => { setFilters(f => ({ ...f, from: '', to: '' })); setRelativeRange(''); setPage(1); fetchData(); }} className="px-2.5 py-1 text-[11px] rounded-md border border-gray-300 bg-white hover:bg-gray-50 font-medium tracking-wide">Clear</button>
+                            )}
+                            {rangeError && <span className="text-[11px] text-rose-600 font-medium ml-1">{rangeError}</span>}
                         </div>
                     </div>
+
+                    {/* Search */}
+                    <div className="w-full sm:w-64">
+                        <label className="block text-xs font-semibold tracking-wide text-gray-700 mb-1 uppercase">Search</label>
+                        <div className="relative group">
+                            <Search className="w-4 h-4 text-gray-400 absolute left-2 top-1/2 -translate-y-1/2" />
+                            {q && (
+                                <button type="button" onClick={() => { setQ(''); setPage(1); fetchData(); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                                    <X className="w-4 h-4" />
+                                    <span className="sr-only">Clear search</span>
+                                </button>
+                            )}
+                            <input type="text" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} placeholder="Caller / Callee / Name / ID" className="border rounded-lg pl-7 pr-8 py-1.5 w-full text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" />
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-500">Live search (debounced)</p>
+                    </div>
+
+                    {/* Recording filter */}
+                    <div className="w-full sm:w-60">
+                        <label className="block text-xs font-semibold tracking-wide text-gray-700 mb-1 uppercase">Recording</label>
+                        <div className="flex rounded-lg border border-gray-300 overflow-hidden text-xs">
+                            {[
+                                { v: '', l: 'All' },
+                                { v: 'true', l: 'With' },
+                                { v: 'false', l: 'Without' },
+                            ].map(opt => (
+                                <button key={opt.v || 'all'} type="button" onClick={() => { setFilters(f => ({ ...f, onlyWithRecordings: opt.v as Filters['onlyWithRecordings'] })); setPage(1); fetchData(); }} className={`flex-1 py-1.5 font-medium tracking-wide ${filters.onlyWithRecordings === opt.v ? 'bg-indigo-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'} transition`}>{opt.l}</button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Advanced toggle */}
+                    <div className="flex items-end gap-2 ml-auto">
+                        <button type="button" onClick={() => setShowAdvanced(s => !s)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium">
+                            <SlidersHorizontal className="w-4 h-4" /> {showAdvanced ? 'Hide Advanced' : 'Advanced'}
+                        </button>
+                        <button type="button" onClick={() => setCompact(c => !c)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-sm font-medium" title="Toggle compact rows">
+                            {compact ? 'Comfort' : 'Compact'}
+                        </button>
+                        <button type="submit" className="inline-flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 text-sm font-medium">
+                            <Search className="w-4 h-4" /> Apply
+                        </button>
+                        <button type="button" onClick={resetFilters} className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm font-medium">
+                            <RotateCcw className="w-4 h-4" /> Reset
+                        </button>
+                        <button type="button" onClick={exportCsv} disabled={!items.length} className="inline-flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-40 text-sm font-medium" title="Export current page to CSV">
+                            <Download className="w-4 h-4" /> CSV
+                        </button>
+                    </div>
                 </div>
+
+                {showAdvanced && (
+                    <div className="pt-3 border-t border-gray-200 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                        <div>
+                            <label className="block text-xs font-semibold tracking-wide text-gray-700 mb-1 uppercase">Caller ID</label>
+                            <input className="border rounded-lg px-3 py-1.5 w-full text-sm" type="text" name="callerId" value={filters.callerId} onChange={handleFilterChange} placeholder="Exact or partial" />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-semibold tracking-wide text-gray-700 mb-1 uppercase">Callee</label>
+                            <input className="border rounded-lg px-3 py-1.5 w-full text-sm" type="text" name="callee" value={filters.callee} onChange={handleFilterChange} placeholder="Destination" />
+                        </div>
+                        <div className="flex items-end">
+                            <div className="text-[11px] text-gray-500 leading-tight">Sort: <span className="font-medium">{sortBy}</span> <span className="uppercase">{sortOrder}</span></div>
+                        </div>
+                    </div>
+                )}
+                {/* Active filter chips */}
+                {activeFilterChips().length > 0 && (() => {
+                    const chips = activeFilterChips(); return (
+                        <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                            {chips.map(chip => (
+                                <span key={chip.key} className="inline-flex items-center gap-1 pl-2 pr-1 py-1 rounded-full text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-200 font-medium">
+                                    {chip.label}
+                                    <button type="button" onClick={() => { chip.clear(); setPage(1); fetchData(); }} className="hover:text-indigo-900 p-0.5 rounded-full focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                                        <X className="w-3 h-3" />
+                                        <span className="sr-only">Remove {chip.label}</span>
+                                    </button>
+                                </span>
+                            ))}
+                            {chips.length > 1 && (
+                                <button type="button" onClick={() => { resetFilters(); }} className="text-[11px] font-medium text-gray-500 hover:text-gray-700 underline decoration-dotted">Clear all</button>
+                            )}
+                            <span className="text-[11px] text-gray-400 ml-auto pr-1">{chips.length} active filter{chips.length > 1 ? 's' : ''}</span>
+                        </div>
+                    );
+                })()}
             </form>
 
             {/* Summary Bar */}
@@ -324,7 +463,7 @@ const CallHistory: React.FC = () => {
                             ) : (
                                 items.map((r, idx) => (
                                     <tr key={r.id} className={idx % 2 === 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-slate-100'}>
-                                        <td className="px-4 py-3 text-sm text-gray-900">
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-900`}>
                                             <div className="flex items-center gap-2">
                                                 <span title={r.callerId || ''}>{r.callerId || '-'}</span>
                                                 {r.callerId && (
@@ -334,20 +473,20 @@ const CallHistory: React.FC = () => {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">{r.callerName || '-'}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">{r.callee || '-'}</td>
-                                        <td className="px-4 py-3">
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>{r.callerName || '-'}</td>
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>{r.callee || '-'}</td>
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'}`}>
                                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusToBadge(r.status)}`}>{r.status || '-'}</span>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>
                                             <div className="flex flex-col leading-tight">
                                                 <span>{formatDateTime(r.startTime)}</span>
                                                 <span className="text-[11px] text-gray-500">{timeAgo(r.startTime)}</span>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">{formatDateTime(r.endTime)}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">{formatDuration(r.duration)}</td>
-                                        <td className="px-4 py-3 text-sm text-gray-700">
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>{formatDateTime(r.endTime)}</td>
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>{formatDuration(r.duration)}</td>
+                                        <td className={`px-4 ${compact ? 'py-2' : 'py-3'} text-sm text-gray-700`}>
                                             {r.hasRecording ? (
                                                 <div className="flex items-center gap-2">
                                                     <button type="button" onClick={() => setExpandedAudioId(expandedAudioId === r.id ? null : r.id)} className="px-2 py-1 text-xs rounded-md border border-gray-300 bg-white hover:bg-gray-50 inline-flex items-center gap-1">

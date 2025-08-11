@@ -4,6 +4,8 @@ import { UseSocket } from "../context/SocketContext";
 import QueueMembersDashboard from "../components/QueueMembersStatus";
 import CallersTracking from "./CallersTracking";
 import CallStatus from "../components/CallStatus";
+import { SipProvider } from "../context/SipContext";
+import IncomingCallPopup from "../components/IncomingCallPopup";
 
 interface ActiveCall {
   id: string;
@@ -16,6 +18,13 @@ interface ActiveCall {
   channels: any[];
 }
 
+// Provide base SIP config (TODO: replace with real credentials / dynamic data)
+const sipConfig = {
+  wsUri: "ws://10.42.0.1:8088/ws",
+  sipUri: "sip:9001@10.42.0.1",
+  password: "eyJhbGciOiJIUzI1", // placeholder
+  displayName: "Supervisor"
+};
 
 export default function LiveCalls() {
   const { socket } = UseSocket();
@@ -23,7 +32,7 @@ export default function LiveCalls() {
 
   useEffect(() => {
     socket?.on("ongoingCalls", (calls: ActiveCall[]) => {
-      console.log ("on going calles", calls)
+      console.log("on going calles", calls)
       setActiveCalls(calls);
     });
 
@@ -33,13 +42,14 @@ export default function LiveCalls() {
   }, [socket]);
 
   return (
-    <div className="h-screen flex flex-col">
-      <CallersTracking />
-
-      <CallStatus activeCalls={activeCalls} />
-
-      <QueueDashboard />
-      <QueueMembersDashboard />
-    </div>
+    <SipProvider config={sipConfig}>
+      <div className="h-screen flex flex-col">
+        <CallersTracking />
+        <CallStatus activeCalls={activeCalls} />
+        <QueueDashboard />
+        <QueueMembersDashboard />
+        <IncomingCallPopup />
+      </div>
+    </SipProvider>
   );
 }

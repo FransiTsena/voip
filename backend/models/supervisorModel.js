@@ -1,4 +1,3 @@
-const { paperClasses } = require('@mui/material');
 const mongoose = require('mongoose');
 
 const supervisorSchema = new mongoose.Schema({

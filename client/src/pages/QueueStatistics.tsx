@@ -106,7 +106,7 @@ const QueueStatistics: React.FC = () => {
 
   // Colors for charts
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
-  
+
   // Get socket from context
   const { socket } = UseSocket();
 
@@ -156,13 +156,13 @@ const QueueStatistics: React.FC = () => {
     setLoading(true);
     try {
       const dateStr = selectedDate.toISOString().split('T')[0];
-      const endpoint = selectedQueue === 'all' 
+      const endpoint = selectedQueue === 'all'
         ? `/api/queues/statistics/all?startDate=${dateStr}&endDate=${dateStr}`
         : `/api/queues/${selectedQueue}/statistics?startDate=${dateStr}&endDate=${dateStr}`;
-      
+
       const response = await fetch(endpoint);
       const data = await response.json();
-      
+
       if (data.success) {
         setQueueStats(Array.isArray(data.data) ? data.data : [data.data]);
       }
@@ -178,14 +178,21 @@ const QueueStatistics: React.FC = () => {
     return queueStats.filter(q => q.queueId === selectedQueue);
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+  const formatTime = (seconds: number | null | undefined) => {
+    if (seconds === null || seconds === undefined || !isFinite(seconds)) return '0:00';
+    const safe = Math.max(0, Math.floor(seconds));
+    const mins = Math.floor(safe / 60);
+    const secs = safe % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-//   const formatPercentage = (value: number) => `${value.toFixed(1)}%`;
-  const formatPercentage = (value: number) => `${value}%`;
+  // Safe percentage formatter: handles null/undefined/NaN values
+  const formatPercentage = (value: number | null | undefined, decimals: number = 1) => {
+    if (value === null || value === undefined) return '0%';
+    if (typeof value !== 'number' || !isFinite(value)) return '0%';
+    const fixed = value.toFixed(decimals);
+    return `${fixed.replace(/\.0+$/, '')}%`;
+  };
 
   const getStatusColor = (rate: number, type: 'answer' | 'abandon' | 'service') => {
     if (type === 'answer') {
@@ -199,7 +206,7 @@ const QueueStatistics: React.FC = () => {
 
   const prepareHourlyData = (stats: QueueStats[]) => {
     if (stats.length === 0) return [];
-    
+
     const hourlyData = Array.from({ length: 24 }, (_, hour) => ({
       hour: `${hour}:00`,
       calls: 0,
@@ -238,13 +245,30 @@ const QueueStatistics: React.FC = () => {
   const hourlyData = prepareHourlyData(filteredStats);
   const pieData = preparePieData(filteredStats);
 
-//   if () {
-//     return (
-//       <div className="flex items-center justify-center h-64">
-//         <div className="text-lg">Loading queue statistics...</div>
-//       </div>
-//     );
-//   }
+  //   if () {
+  //     return (
+  //       <div className="flex items-center justify-center h-64">
+  //         <div className="text-lg">Loading queue statistics...</div>
+  //       </div>
+  //     );
+  //   }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/3" />
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-24 bg-gray-100 rounded" />
+            ))}
+          </div>
+          <div className="h-96 bg-gray-100 rounded" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -435,11 +459,10 @@ const QueueStatistics: React.FC = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
               >
                 {tab}
               </button>
@@ -466,7 +489,7 @@ const QueueStatistics: React.FC = () => {
                           cx="50%"
                           cy="50%"
                           labelLine={false}
-                          label={({ name, percent }) => `${name} ${(percent || 10 * 100).toFixed(0)}%`}
+                          label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                           outerRadius={80}
                           fill="#8884d8"
                           dataKey="value"
@@ -522,6 +545,13 @@ const QueueStatistics: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredStats.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-8 text-center text-sm text-gray-500">
+                            No queue data available.
+                          </td>
+                        </tr>
+                      )}
                       {filteredStats.map((queue) => (
                         <tr key={queue.queueId} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{queue.queueName}</td>
@@ -666,10 +696,7 @@ const QueueStatistics: React.FC = () => {
                       <div className="flex justify-between">
                         <span>Utilization:</span>
                         <span className="font-semibold">
-                          {queue.activeAgents > 0 ? 
-                            formatPercentage((queue.busyAgents / queue.activeAgents) * 100) : 
-                            '0%'
-                          }
+                          {formatPercentage(queue.activeAgents > 0 ? (queue.busyAgents / queue.activeAgents) * 100 : 0)}
                         </span>
                       </div>
                     </div>

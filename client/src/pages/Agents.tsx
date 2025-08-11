@@ -6,7 +6,6 @@ import baseUrl from "../util/baseUrl";
 import {
   Activity,
   User,
-  Star,
   BellRing,
   Pause,
   Users,
