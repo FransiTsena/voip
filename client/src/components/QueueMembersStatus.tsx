@@ -23,6 +23,7 @@ export default function QueueMembersDashboard() {
 
   useEffect(() => {
     const handler = (data: QueueMemberType[] | any) => {
+      console.log("queueMembers", data);
       if (Array.isArray(data)) {
         setQueueMembers(data);
       } else {

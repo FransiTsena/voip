@@ -31,7 +31,6 @@ async function loadAgentDataMap() {
     {},
     { userExtension: 1, displayName: 1, _id: 1 }
   ).lean();
-  console.log("Loading extensions from database:", extensions);
   const map = {};
   extensions.forEach((ext) => {
     // Parse displayName to get first and last name (assuming format "First Last")
@@ -52,7 +51,6 @@ async function loadAgentDataMap() {
     };
   });
   agentDataMap = map;
-  console.log("Agent data map loaded:", agentDataMap);
 }
 
 // Centralized in-memory state for the application
@@ -231,6 +229,40 @@ function emitQueueCallersStatus(io) {
   });
 
   io.emit("queueStatus", flattened);
+}
+
+/**
+ * Emits the current queue members to all clients.
+ * Flattens the queue members data structure for frontend consumption.
+ * @param {object} io - The Socket.IO server instance.
+ */
+function emitQueueMembersStatus(io) {
+  const flattenedMembers = [];
+  Object.keys(state.queueMembers).forEach((queueId) => {
+    state.queueMembers[queueId].forEach((member) => {
+      flattenedMembers.push({
+        ...member,
+        queueName: queueNameMap[queueId] || queueId,
+      });
+    });
+  });
+
+  console.log(
+    `📊 Emitting ${flattenedMembers.length} queue members to all clients`
+  );
+  io.emit("queueMembers", flattenedMembers);
+}
+
+/**
+ * Emits the current ongoing calls to all clients.
+ * @param {object} io - The Socket.IO server instance.
+ */
+function emitOngoingCallsStatus(io) {
+  const ongoingCallsArray = Object.values(state.ongoingCalls);
+  console.log(
+    `📞 Emitting ${ongoingCallsArray.length} ongoing calls to all clients`
+  );
+  io.emit("ongoingCalls", ongoingCallsArray);
 }
 
 /**
@@ -414,7 +446,7 @@ function handleBridgeEnter(event, io, ami) {
     channels: Array.from(state.activeBridges[BridgeUniqueid].channels),
   };
 
-  io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+  emitOngoingCallsStatus(io);
 }
 
 // --- Bridge Create Handler ---
@@ -442,7 +474,6 @@ function handleBridgeDestroy(event) {
  * @param {object} io - The Socket.IO server instance.
  */
 function handleHangup(event, io) {
-  console.log("Hangup Event:", event);
   const { Linkedid, Channel, Cause, CauseTxt } = event;
 
   // Case 1: Call was hung up while ringing -> Missed Call
@@ -469,10 +500,12 @@ function handleHangup(event, io) {
 
   // Case 2: An answered call was hung up -> Ended, Busy, Failed etc.
   if (state.ongoingCalls[Linkedid]) {
+    // Remove the hung up channel from the call's channel list
     state.ongoingCalls[Linkedid].channels = state.ongoingCalls[
       Linkedid
     ].channels.filter((c) => c !== Channel);
 
+    // If no channels remain, the call is completely ended
     if (state.ongoingCalls[Linkedid].channels.length === 0) {
       const call = state.ongoingCalls[Linkedid];
       const duration = Math.floor((Date.now() - call.startTime) / 1000);
@@ -491,10 +524,18 @@ function handleHangup(event, io) {
           break;
       }
 
-      console.log(
-        `👋 Call ${Linkedid} ended. Status: ${finalStatus}, Duration: ${duration}s`
-      );
-      io.emit("callEnded", { ...call, endTime: Date.now(), duration });
+      console.log(`👋 Call ${Linkedid} ended. Duration: ${duration}s`);
+
+      // Emit call ended event with call details
+      io.emit("callEnded", {
+        ...call,
+        linkedId: Linkedid,
+        endTime: Date.now(),
+        duration,
+        finalStatus,
+      });
+
+      // Update call log in database
       updateCallLog(Linkedid, {
         endTime: new Date(),
         duration,
@@ -503,10 +544,27 @@ function handleHangup(event, io) {
         hangupCauseTxt: CauseTxt,
       });
 
-      //got him
+      // Remove call from ongoing calls state
       delete state.ongoingCalls[Linkedid];
-      console.log("Ongoing calles Updated Debug", state.ongoingCalls);
-      io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+
+      // Emit updated ongoing calls list to all clients
+      emitOngoingCallsStatus(io);
+    }
+  } else {
+    // Force remove any call that might match this LinkedId (fallback cleanup)
+    let foundAndRemoved = false;
+    Object.keys(state.ongoingCalls).forEach((callId) => {
+      if (
+        callId === Linkedid ||
+        state.ongoingCalls[callId].channels?.includes(Channel)
+      ) {
+        delete state.ongoingCalls[callId];
+        foundAndRemoved = true;
+      }
+    });
+
+    if (foundAndRemoved) {
+      emitOngoingCallsStatus(io);
     }
   }
 }
@@ -514,17 +572,18 @@ function handleHangup(event, io) {
 function handleHold(event, io) {
   if (state.ongoingCalls[event.Linkedid]) {
     state.ongoingCalls[event.Linkedid].state = "On Hold";
+    console.log(`📞 Call ${event.Linkedid} put on hold`);
     // updateCallLog(event.Linkedid, { status: "on_hold" });
-    console.log(state.ongoingCalls);
-    io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+    emitOngoingCallsStatus(io);
   }
 }
 
 function handleUnhold(event, io) {
   if (state.ongoingCalls[event.Linkedid]) {
     state.ongoingCalls[event.Linkedid].state = "Talking";
+    console.log(`📞 Call ${event.Linkedid} resumed from hold`);
     updateCallLog(event.Linkedid, { status: "answered" });
-    io.emit("ongoingCalls", Object.values(state.ongoingCalls));
+    emitOngoingCallsStatus(io);
   }
 }
 
@@ -560,7 +619,7 @@ function handleQueueMember(event) {
 
 function handleQueueStatusComplete(io) {
   io.emit("queueUpdate", state.queueData);
-  io.emit("queueMembers", state.queueMembers);
+  emitQueueMembersStatus(io);
 }
 
 function handleQueueCallerJoin(event, io) {
@@ -586,7 +645,7 @@ function handleQueueCallerJoin(event, io) {
     updateCallLog(Linkedid, {
       queue: Queue,
       queueName: queueNameMap[Queue] || Queue,
-      status: 'queued'
+      status: "queued",
     });
   }
 
@@ -599,23 +658,25 @@ function handleQueueCallerJoin(event, io) {
 
 function handleQueueCallerLeave(event, io) {
   const { Uniqueid, Linkedid } = event;
-  
+
   // Find the caller to get wait time before removing
   const caller = state.queueCallers.find((c) => c.id === Uniqueid);
   if (caller) {
     const waitTime = Math.floor((Date.now() - caller.waitStart) / 1000);
-    
+
     // Update call log with wait time
     if (Linkedid || caller.linkedId) {
       updateCallLog(Linkedid || caller.linkedId, {
         waitTime: waitTime,
-        status: 'answered' // Assuming leave means answered, abandon event handles abandonment
+        status: "answered", // Assuming leave means answered, abandon event handles abandonment
       });
     }
-    
-    console.log(`📞 Caller ${caller.caller_id} left queue ${caller.queueId} after waiting ${waitTime}s`);
+
+    console.log(
+      `📞 Caller ${caller.caller_id} left queue ${caller.queueId} after waiting ${waitTime}s`
+    );
   }
-  
+
   // Filter out caller by ID from the array (ignore queue)
   state.queueCallers = state.queueCallers.filter((c) => c.id !== Uniqueid);
   emitQueueCallersStatus(io);
@@ -623,27 +684,98 @@ function handleQueueCallerLeave(event, io) {
 
 function handleQueueCallerAbandon(event, io) {
   const { Uniqueid, Linkedid, Queue } = event;
-  
+
   // Find the caller to get wait time before removing
   const caller = state.queueCallers.find((c) => c.id === Uniqueid);
   if (caller) {
     const waitTime = Math.floor((Date.now() - caller.waitStart) / 1000);
-    
+
     // Update call log with abandon status and wait time
     if (Linkedid || caller.linkedId) {
       updateCallLog(Linkedid || caller.linkedId, {
         waitTime: waitTime,
-        status: 'abandoned',
-        endTime: new Date()
+        status: "abandoned",
+        endTime: new Date(),
       });
     }
-    
-    console.log(`📞 Caller ${caller.caller_id} abandoned queue ${caller.queueId} after waiting ${waitTime}s`);
+
+    console.log(
+      `📞 Caller ${caller.caller_id} abandoned queue ${caller.queueId} after waiting ${waitTime}s`
+    );
   }
-  
+
   // Filter out caller by ID from the array
   state.queueCallers = state.queueCallers.filter((c) => c.id !== Uniqueid);
   emitQueueCallersStatus(io);
+}
+
+/**
+ * Handles the 'AgentComplete' event when a queue call ends.
+ * Uses DestLinkedid to remove the ongoing call and emit updated list.
+ * @param {object} event - The AMI event object.
+ * @param {object} io - The Socket.IO server instance.
+ */
+function handleAgentComplete(event, io) {
+  const {
+    DestLinkedid,
+    Queue,
+    MemberName,
+    HoldTime,
+    TalkTime,
+    Reason,
+    CallerIDNum,
+    CallerIDName,
+  } = event;
+
+  console.log(
+    `🎯 AgentComplete: Queue call ended for ${CallerIDNum} in queue ${Queue}`
+  );
+
+  // Remove the ongoing call using DestLinkedid
+  if (state.ongoingCalls[DestLinkedid]) {
+    const call = state.ongoingCalls[DestLinkedid];
+    const totalDuration = parseInt(HoldTime) + parseInt(TalkTime);
+
+    console.log(
+      `👋 Queue call ${DestLinkedid} completed. Hold: ${HoldTime}s, Talk: ${TalkTime}s, Total: ${totalDuration}s`
+    );
+
+    // Update call log with queue completion data
+    updateCallLog(DestLinkedid, {
+      endTime: new Date(),
+      duration: totalDuration,
+      status: "completed",
+      holdTime: parseInt(HoldTime),
+      waitTime: parseInt(HoldTime), // Hold time is essentially wait time in queue
+      queue: Queue,
+      agentName: MemberName,
+      hangupReason: Reason,
+    });
+
+    // Remove call from ongoing calls state
+    delete state.ongoingCalls[DestLinkedid];
+
+    // Emit call ended event with queue-specific details
+    io.emit("callEnded", {
+      ...call,
+      linkedId: DestLinkedid,
+      endTime: Date.now(),
+      duration: totalDuration,
+      holdTime: parseInt(HoldTime),
+      talkTime: parseInt(TalkTime),
+      queue: Queue,
+      agent: MemberName,
+      reason: Reason,
+      finalStatus: "completed",
+    });
+
+    // Emit updated ongoing calls list to all clients
+    emitOngoingCallsStatus(io);
+  } else {
+    console.log(
+      `⚠️ AgentComplete event for ${DestLinkedid} but call not found in ongoing calls`
+    );
+  }
 }
 
 // --- ENDPOINT & AGENT STATUS HANDLERS ---
@@ -678,7 +810,6 @@ function handleEndpointListComplete(event, io) {
 
 // Enhanced: Track agent shift on status change
 async function handleContactStatus(event, io) {
-  console.log("Contact Status", event);
   const { EndpointName, ContactStatus } = event;
   let status = "";
   let reason = "unknown";
@@ -760,10 +891,7 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io, ami));
   ami.on("BridgeDestroy", handleBridgeDestroy);
 
-
-  ami.on("AgentConnect", (event)=>{
-    console.log(event)
-  })
+  ami.on("AgentComplete", (event) => handleAgentComplete(event, io));
   ami.on("DialBegin", (event) => handleDialBegin(event, io));
   ami.on("Hangup", (event) => handleHangup(event, io));
   ami.on("Hold", (event) => handleHold(event, io));
@@ -804,7 +932,7 @@ async function setupAmiEventListeners(ami, io) {
   // Its logic has been merged into the specific 'Hangup' handler.
 
   // -- Start periodic polling actions --
-  setInterval(() => ami.action({ Action: "QureloadeueStatus" }), 2000);
+  setInterval(() => ami.action({ Action: "QueueStatus" }), 2000);
   setInterval(() => ami.action({ Action: "PJSIPShowEndpoints" }), 5000);
 
   console.log("✅ AMI event listeners registered and ready.");

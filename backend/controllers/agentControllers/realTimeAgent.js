@@ -71,6 +71,86 @@ function updateAverage(oldAvg, count, newValue) {
   return (oldAvg * (count - 1) + newValue) / count;
 }
 
+/**
+ * Increment answered calls for an agent and update related metrics
+ * @param {string} username - Agent username/extension
+ * @param {number} holdTime - Time caller waited in queue (seconds)
+ * @param {number} ringTime - Time agent phone rang (seconds)
+ * @param {object} io - Socket.IO instance for real-time updates
+ */
+async function incrementAnsweredCalls(
+  username,
+  holdTime = 0,
+  ringTime = 0,
+  io
+) {
+  try {
+    console.log(`📞 Incrementing answered calls for agent ${username}`);
+
+    const agent = await getOrCreateAgent(username);
+
+    // Increment call counts
+    agent.totalCallsToday += 1;
+    agent.totalCallsOverall += 1;
+    agent.answeredCallsToday += 1;
+    agent.answeredCallsOverall += 1;
+
+    console.log(
+      `📊 Agent ${username} stats - Today: ${agent.answeredCallsToday}, Overall: ${agent.answeredCallsOverall}`
+    );
+
+    // Update timing metrics
+    const holdTimeSeconds = parseInt(holdTime) || 0;
+    const ringTimeSeconds = parseInt(ringTime) || 0;
+
+    // Update hold time averages (how long caller waited)
+    agent.averageHoldTimeToday = updateAverage(
+      agent.averageHoldTimeToday,
+      agent.answeredCallsToday,
+      holdTimeSeconds
+    );
+    agent.averageHoldTimeOverall = updateAverage(
+      agent.averageHoldTimeOverall,
+      agent.answeredCallsOverall,
+      holdTimeSeconds
+    );
+
+    // Update ring time averages (how long agent phone rang)
+    agent.averageRingTimeToday = updateAverage(
+      agent.averageRingTimeToday,
+      agent.answeredCallsToday,
+      ringTimeSeconds
+    );
+    agent.averageRingTimeOverall = updateAverage(
+      agent.averageRingTimeOverall,
+      agent.answeredCallsOverall,
+      ringTimeSeconds
+    );
+
+    // Update agent status
+    agent.deviceState = "INUSE";
+    agent.liveStatus = "In Use";
+    agent.lastActivity = new Date();
+    agent.currentCallStart = new Date();
+
+    // Stop idle timer if running
+    stopIdleTimer(username);
+
+    // Save to database and emit updates
+    await saveAgentStats(username);
+    await emitAgentStatusOnly(io);
+
+    console.log(
+      `✅ Successfully incremented answered calls for agent ${username}`
+    );
+  } catch (error) {
+    console.error(
+      `❌ Error incrementing answered calls for agent ${username}:`,
+      error
+    );
+  }
+}
+
 // Save agent stats to database
 async function saveAgentStats(username) {
   try {
@@ -531,8 +611,44 @@ function setupAgentListeners(ami, io) {
     await emitAgentStatusOnly(io);
   });
 
+  // Listen to AgentCalled events (agent is notified of incoming call) - Track total calls
+  ami.on("AgentCalled", async (event) => {
+    const { Interface, Queue, CallerIDNum, CallerIDName, Linkedid } = event;
+
+    // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
+    if (!Interface || !Interface.startsWith("Local/")) return;
+    const username = Interface.split("/")[1];
+    const exact_username = username.split('@')[0]
+    if (!username) return;
+
+    // Skip if extension doesn't exist in our database
+    const exists = await extensionExists(exact_username);
+    if (!exists) {
+      return;
+    }
+
+    console.log(`📞 Agent ${exact_username} called for queue ${Queue} - caller: ${CallerIDNum}`);
+
+    const agent = await getOrCreateAgent(exact_username);
+
+    // Increment total calls when agent is notified
+    agent.totalCallsToday += 1;
+    agent.totalCallsOverall += 1;
+
+    console.log(`📊 Agent ${exact_username} total calls - Today: ${agent.totalCallsToday}, Overall: ${agent.totalCallsOverall}`);
+
+    // Update agent activity
+    agent.lastActivity = new Date();
+
+    // Save to database and emit updates
+    await saveAgentStats(username);
+    await emitAgentStatusOnly(io);
+  });
+
   // Listen to AgentConnect events (agent answers queue call) - More accurate than BridgeEnter
   ami.on("AgentConnect", async (event) => {
+    console.log("Agent Connect Event",event)
+
     const {
       MemberName,
       Interface,
@@ -545,73 +661,31 @@ function setupAgentListeners(ami, io) {
     } = event;
 
     // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
-    if (!Interface || !Interface.startsWith("PJSIP/")) return;
+    if (!Interface || !Interface.startsWith("Local/")) return;
     const username = Interface.split("/")[1];
+    const exact_username = username.split('@')[0]
     if (!username) return;
 
     // Skip if extension doesn't exist in our database
-    const exists = await extensionExists(username);
+    const exists = await extensionExists(exact_username);
     if (!exists) {
       return;
     }
 
-    const agent = await getOrCreateAgent(username);
-
-    // Agent is now on a queue call
-    agent.deviceState = "INUSE";
-    agent.liveStatus = "In Use";
-    agent.lastActivity = new Date();
-    agent.currentCallStart = new Date();
-
-    // Increment call counts - specifically answered calls from queue
-    agent.totalCallsToday += 1;
-    agent.totalCallsOverall += 1;
-    agent.answeredCallsToday += 1;
-    agent.answeredCallsOverall += 1;
-
-    // Update queue-specific metrics
-    const holdTimeSeconds = parseInt(HoldTime) || 0;
-    const ringTimeSeconds = parseInt(RingTime) || 0;
-
-    // Update hold time averages (how long caller waited)
-    agent.averageHoldTimeToday = updateAverage(
-      agent.averageHoldTimeToday,
-      agent.answeredCallsToday,
-      holdTimeSeconds
-    );
-    agent.averageHoldTimeOverall = updateAverage(
-      agent.averageHoldTimeOverall,
-      agent.answeredCallsOverall,
-      holdTimeSeconds
-    );
-
-    // Update ring time averages (how long agent's phone rang)
-    agent.averageRingTimeToday = updateAverage(
-      agent.averageRingTimeToday,
-      agent.answeredCallsToday,
-      ringTimeSeconds
-    );
-    agent.averageRingTimeOverall = updateAverage(
-      agent.averageRingTimeOverall,
-      agent.answeredCallsOverall,
-      ringTimeSeconds
-    );
+    // Use the dedicated function to increment answered calls
+    await incrementAnsweredCalls(exact_username, HoldTime, RingTime, io);
 
     // Store call session for timing with queue info
     state.callSessions[Linkedid] = {
-      agent: username,
+      agent: exact_username,
       startTime: new Date(),
       answered: true,
       queue: Queue,
       callerID: CallerIDNum,
       callerName: CallerIDName,
-      holdTime: holdTimeSeconds,
-      ringTime: ringTimeSeconds,
+      holdTime: parseInt(HoldTime) || 0,
+      ringTime: parseInt(RingTime) || 0,
     };
-
-    stopIdleTimer(username);
-    await saveAgentStats(username);
-    await emitAgentStatusOnly(io);
   });
 
   // Listen to Hangup events (call ends)
@@ -679,25 +753,25 @@ function setupAgentListeners(ami, io) {
     } = event;
 
     // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
-    if (!Interface || !Interface.startsWith("PJSIP/")) return;
+    if (!Interface || !Interface.startsWith("Local/")) return;
     const username = Interface.split("/")[1];
-    if (!username) return;
+    const exact_username = username.split('@')[0]
+    if (!exact_username) return;
 
     // Skip if extension doesn't exist in our database
-    const exists = await extensionExists(username);
+    const exists = await extensionExists(exact_username);
     if (!exists) {
       return;
     }
 
-    const agent = await getOrCreateAgent(username);
+    const agent = await getOrCreateAgent(exact_username);
 
-    // Agent missed a queue call - increment missed call counters
+    // Agent missed a queue call - increment missed call counters only
     agent.missedCallsToday += 1;
     agent.missedCallsOverall += 1;
 
-    // Also increment total calls (this was an attempt to reach the agent)
-    agent.totalCallsToday += 1;
-    agent.totalCallsOverall += 1;
+    // Note: We don't increment totalCalls for missed calls
+    // totalCalls should only represent calls that were actually handled/answered
 
     // Track ring time for missed calls (how long phone rang before timeout)
     const ringTimeSeconds = parseInt(RingTime) || 0;
@@ -780,10 +854,7 @@ function setupAgentListeners(ami, io) {
     }
   }, 5 * 60 * 1000);
 
-  // Periodic status refresh (every 2 minutes - much less frequent)
-  setInterval(async () => {
-    await refreshAgentStatus(io);
-  }, 2 * 60 * 1000);
+  // Removed periodic status refresh - now using immediate updates only
 
   // Initial status load - simplified and reliable
   setTimeout(async () => {

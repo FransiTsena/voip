@@ -58,7 +58,20 @@ ami
       // When a new client connects, send them the current state immediately.
       // This ensures their dashboard is populated without waiting for a new event.
       socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
-      socket.emit("queueMembers", state.queueMembers);
+      
+      // Send current queue members to new clients
+      const { emitQueueMembersStatus } = require("./config/amiConfig");
+      // For individual socket, we need to emit directly
+      const flattenedMembers = [];
+      Object.keys(state.queueMembers).forEach(queueId => {
+        state.queueMembers[queueId].forEach(member => {
+          flattenedMembers.push({
+            ...member,
+            queueName: global.queueNameMap?.[queueId] || queueId
+          });
+        });
+      });
+      socket.emit("queueMembers", flattenedMembers);
 
       // Send current enriched agent status if available
       if (Object.keys(agentState.agents).length > 0) {
