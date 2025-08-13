@@ -51,7 +51,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
   };
 
   // Professional delete with confirmation and icon
-  const removeEntry = (id) => {
+  const removeEntry = (id: number) => {
     if (window.confirm("Are you sure you want to delete this entry?")) {
       setEntries(entries.filter(entry => entry.id !== id));
     }

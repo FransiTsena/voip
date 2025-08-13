@@ -79,7 +79,6 @@ export default function App() {
     <Routes>
       {/* 1. Login page - this route stands alone */}
       <Route path="/login" element={<LoginPage />} />
-
       {/* 2. All other routes that share the TopNav and Sidebar layout */}
       <Route path="/" element={<MainLayout />}>
         <Route path="report" element={<Report />} />
