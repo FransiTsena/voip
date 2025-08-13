@@ -26,31 +26,75 @@ const getMenuById = async (req, res) => {
 // Update an IVR menu
 const updateMenu = async (req, res) => {
   try {
+    const { name, description, dtmf, entries, extension } = req.body;
+    console.log('Updating IVR menu:', req.params.id, req.body);
+
+    // 1. Find the existing menu
     const menu = await IVRMenu.findById(req.params.id);
     if (!menu) {
-      return res.status(404).json({ error: 'Menu not found' });
+      return res.status(404).json({
+        status: 404,
+        message: "IVR menu not found",
+        error: "Menu with the specified ID does not exist"
+      });
     }
 
-    const { name, options } = req.body;
-    
-    // Validate required fields
-    if (!name || !options || !Array.isArray(options)) {
-      return res.status(400).json({ error: 'Invalid request data' });
+    // 2. Validate required fields
+    if (!dtmf?.announcement?.id) {
+      return res.status(400).json({
+        status: 400,
+        message: "Announcement ID is required",
+        error: "Missing required announcement fields"
+      });
+    }
+    if (!name) {
+      return res.status(400).json({
+        status: 400,
+        message: "IVR menu name is required",
+        error: "Missing IVR menu name"
+      });
     }
 
+    // 3. Update the menu fields
     menu.name = name;
-    menu.options = options.map(option => ({
-      number: option.number,
-      queue: option.queue
+    menu.description = description || '';
+    menu.dtmf = {
+      announcement: {
+        id: dtmf.announcement.id,
+        name: dtmf.announcement.name
+      },
+      timeout: dtmf.timeout || 5,
+      invalidRetries: dtmf.invalidRetries || 3,
+      timeoutRetries: dtmf.timeoutRetries || 3,
+      invalidRetryRecording: {
+        id: dtmf.invalidRetryRecording?.id || '',
+        name: dtmf.invalidRetryRecording?.name || ''
+      }
+    };
+    menu.entries = (entries || []).map(entry => ({
+      id: entry.id || Date.now(),
+      type: entry.type,
+      digit: entry.digit,
+      value: entry.value,
+      label: entry.label || `Option ${entry.digit}`
     }));
+    menu.extension = extension || '';
 
+    // 4. Save the updated menu
     await menu.save();
-    return res.json({
-      menu,
-      message: 'IVR menu updated and Asterisk configuration updated'
+
+    res.status(200).json({
+      status: 200,
+      message: 'IVR menu updated successfully',
+      menu
     });
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    console.error('Error updating IVR menu:', error);
+    res.status(500).json({
+      status: 500,
+      message: 'Internal server error',
+      error: error.message
+    });
   }
 };
 

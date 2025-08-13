@@ -414,7 +414,7 @@ export default function App() {
     };
 
     const handleSave = () => {
-        navigate('/');
+        navigate('/ivr-menu');
     };
 
     const handleCancel = () => {
