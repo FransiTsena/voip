@@ -5,7 +5,6 @@ import QueueMembersDashboard from "../components/QueueMembersStatus";
 import CallersTracking from "./CallersTracking";
 import CallStatus from "../components/CallStatus";
 import { SipProvider } from "../context/SipContext";
-import IncomingCallPopup from "../components/IncomingCallPopup";
 
 interface ActiveCall {
   id: string;
@@ -48,7 +47,6 @@ export default function LiveCalls() {
         <CallStatus activeCalls={activeCalls} />
         <QueueDashboard />
         <QueueMembersDashboard />
-        <IncomingCallPopup />
       </div>
     </SipProvider>
   );

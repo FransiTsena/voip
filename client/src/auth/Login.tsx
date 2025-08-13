@@ -39,11 +39,11 @@ const LoginPage: React.FC = () => {
         <div className="w-full lg:w-1/2 flex justify-center items-center p-8">
           <div className="w-full max-w-md text-center">
             <div className="mb-8">
-              <img
+              {/* <img
                 src="/picpic.png"
                 alt="Company Logo"
                 className="mx-auto h-24 w-auto object-contain mb-4"
-              />
+              /> */}
               <h1 className="text-3xl font-extrabold text-gray-800">Login to Dashboard</h1>
             </div>
             <form onSubmit={handleSubmit} className="space-y-6">

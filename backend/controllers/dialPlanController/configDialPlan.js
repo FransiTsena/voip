@@ -215,46 +215,63 @@ const generateAgentDialplan = (allAgents) => {
 };
 
 // MODIFIED: Helper to generate Asterisk dialplan for Miscellaneous Applications from the database
+/**
+ * Generates Asterisk dialplan code for miscellaneous applications.
+ * This function creates a dialplan context named [app-miscapps-custom]
+ * and adds an entry for each miscellaneous application, routing the
+ * feature code to the correct destination.
+ *
+ * @param {Array<Object>} allMiscApps An array of misc application objects from the database.
+ * @param {Array<Object>} allRecordings An array of recording objects to map recording IDs to filenames.
+ * @returns {string} The complete Asterisk dialplan code as a string.
+ */
 const generateMiscApplicationDialplan = (allMiscApps, allRecordings) => {
 
-    let miscAppBindings = '';
-    allMiscApps.forEach(app => {
-        const destinationType = app.destination.type;
-        const destinationId = app.destination.id;
-        let asteriskAction = '';
+  // Start with the custom context header
+  let miscAppBindings = '[app-miscapps-custom]\n';
 
-        switch (destinationType) {
-            case 'extension':
-                asteriskAction = `Dial(PJSIP/${destinationId},30)`;
-                break;
-            case 'queue':
-                asteriskAction = `Queue(${destinationId})`;
-                break;
-            case 'ivr':
-                asteriskAction = `Goto(ivr_${destinationId},s,1)`;
-                break;
-            case 'recording':
-                const recordingFilenames = getRecordingFilenamesArray(destinationId, allRecordings);
-                if (recordingFilenames.length > 0) {
-                    // Play all associated recording files
-                    asteriskAction = recordingFilenames.map(filename => `Playback(${filename})`).join('\nsame => n,');
-                } else {
-                    asteriskAction = `NoOp(Recording ID ${destinationId} not found or has no files)`;
-                }
-                break;
-            default:
-                asteriskAction = `NoOp(Unknown destination type: ${destinationType} for Misc App: ${app.name})`;
-                break;
-        }
+  allMiscApps.forEach(app => {
+      const destinationType = app.destination.type;
+      const destinationId = app.destination.id;
+      let asteriskAction = '';
 
-        miscAppBindings += `\n; Feature Code: ${app.name} (${destinationType}: ${destinationId})\n`;
-        miscAppBindings += `exten => ${app.featureCode},1,NoOp(Executing Misc App: ${app.name})\n`;
-        miscAppBindings += `same => n,Answer()\n`; // Answering is good practice before executing an app
-        miscAppBindings += `same => n,${asteriskAction}\n`; // The dynamically generated action
-        miscAppBindings += `same => n,Hangup()\n`; // Hangup after the action
-    });
-    return miscAppBindings;
+      switch (destinationType) {
+          case 'extension':
+              asteriskAction = `Dial(PJSIP/${destinationId},30)`;
+              break;
+          case 'queue':
+              asteriskAction = `Queue(${destinationId})`;
+              break;
+          case 'ivr':
+              asteriskAction = `Goto(ivr_${destinationId},s,1)`;
+              break;
+          case 'recording':
+              const recordingFilenames = getRecordingFilenamesArray(destinationId, allRecordings);
+              if (recordingFilenames.length > 0) {
+                  // Play all associated recording files
+                  asteriskAction = recordingFilenames.map(filename => `Playback(${filename})`).join('\nsame => n,');
+              } else {
+                  // Handle case where recording files are not found
+                  asteriskAction = `NoOp(Recording ID ${destinationId} not found or has no files)`;
+              }
+              break;
+          default:
+              // Handle unknown destination types gracefully
+              asteriskAction = `NoOp(Unknown destination type: ${destinationType} for Misc App: ${app.name})`;
+              break;
+      }
+
+      // Generate the dialplan code for the current miscellaneous application
+      miscAppBindings += `\n; Feature Code: ${app.name} (${destinationType}: ${destinationId})\n`;
+      miscAppBindings += `exten => ${app.featureCode},1,NoOp(Executing Misc App: ${app.name})\n`;
+      miscAppBindings += `same => n,Answer()\n`; // Answering is good practice before executing an app
+      miscAppBindings += `same => n,${asteriskAction}\n`; // The dynamically generated action
+      miscAppBindings += `same => n,Hangup()\n`; // Hangup after the action
+  });
+
+  return miscAppBindings;
 };
+
 
 // Main function to generate and write the combined dialplan
 const generateAndWriteDialplan = async () => {
@@ -275,28 +292,28 @@ const generateAndWriteDialplan = async () => {
         const miscAppBindings = generateMiscApplicationDialplan(allMiscApps, allRecordings);
 
         // Define the static ChanSpy dialplan contexts
-        const chanSpyDialplan = `
-              [targeted-chanspy]
-              exten => _556.,1,NoOp(Targeted ChanSpy for extension \${EXTEN:3})
-              ;exten => _556.,n,Authenticate(1234)
-              exten => _556.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
-              exten => _556.,n,ChanSpy(PJSIP/\${EXTEN:3},q)
-              exten => _556.,n,Hangup
+        const chanSpyDialplan =`
+[targeted-chanspy]
+exten => _556.,1,NoOp(Targeted ChanSpy for extension \${EXTEN:3})
+;exten => _556.,n,Authenticate(1234)
+exten => _556.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _556.,n,ChanSpy(PJSIP/\${EXTEN:3},q)
+exten => _556.,n,Hangup
 
-              [targeted-chanspy-whisper]
-              exten => _557.,1,NoOp(Targeted ChanSpy Whisper for extension \${EXTEN:3})
-              ;exten => _557.,n,Authenticate(1234)
-              exten => _557.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
-              exten => _557.,n,ChanSpy(PJSIP/\${EXTEN:3},qw)
-              exten => _557.,n,Hangup
+[targeted-chanspy-whisper]
+exten => _557.,1,NoOp(Targeted ChanSpy Whisper for extension \${EXTEN:3})
+;exten => _557.,n,Authenticate(1234)
+exten => _557.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _557.,n,ChanSpy(PJSIP/\${EXTEN:3},qw)
+exten => _557.,n,Hangup
 
-              [targeted-chanspy-barge]
-              exten => _558.,1,NoOp(Targeted ChanSpy Barge for extension \${EXTEN:3})
-              ;exten => _558.,n,Authenticate(1234)
-              exten => _558.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
-              exten => _558.,n,ChanSpy(PJSIP/\${EXTEN:3},qB)
-              exten => _558.,n,Hangup
-              `;
+[targeted-chanspy-barge]
+exten => _558.,1,NoOp(Targeted ChanSpy Barge for extension \${EXTEN:3})
+;exten => _558.,n,Authenticate(1234)
+exten => _558.,n,ExecIf($["\${EXTEN:3}"="1000"]?Hangup)
+exten => _558.,n,ChanSpy(PJSIP/\${EXTEN:3},qB)
+exten => _558.,n,Hangup
+        `;
 
         // Start with the main custom context and add dynamic and static content
         combinedDialplan += '[from-internal-custom]\n';

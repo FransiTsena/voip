@@ -5,7 +5,6 @@ const AmiClient = require("asterisk-ami-client");
 const app = require("./app"); // Your Express app
 const { setupAmiEventListeners, state } = require("./config/amiConfig");
 const {
-  setupAgentListeners,
   emitAgentStatusOnly,
   state: agentState,
 } = require("./controllers/agentControllers/realTimeAgent");
