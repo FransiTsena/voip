@@ -34,9 +34,11 @@ export default function LiveCalls() {
       console.log("on going calles", calls)
       setActiveCalls(calls);
     });
-
+    socket?.emit("on-going-calles")
     return () => {
       socket?.off("ongoingCalls");
+    socket?.off("on-going-calles")
+
     };
   }, [socket]);
 

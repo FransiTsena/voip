@@ -414,7 +414,7 @@ const CallStatus: React.FC<CallStatusProps> = ({ activeCalls }) => {
                     >
                       <Headphones className="w-4 h-4" /> Listen
                     </button>
-                    <button
+                    {/* <button
                       onClick={() => handleMonitorAction(call, "Whisper")}
                       className="px-3 py-1.5 text-sm bg-yellow-500 text-white rounded-md hover:bg-yellow-600 focus:ring-2 ring-yellow-500 flex items-center gap-1 shadow-sm"
                     >
@@ -425,7 +425,7 @@ const CallStatus: React.FC<CallStatusProps> = ({ activeCalls }) => {
                       className="px-3 py-1.5 text-sm bg-red-500 text-white rounded-md hover:bg-red-600 focus:ring-2 ring-red-500 flex items-center gap-1 shadow-sm"
                     >
                       <PhoneCall className="w-4 h-4" /> Barge
-                    </button>
+                    </button> */}
                   </td>
                 </tr>
               ))

@@ -56,7 +56,6 @@ ami
 
       // When a new client connects, send them the current state immediately.
       // This ensures their dashboard is populated without waiting for a new event.
-      socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
       
       // Send current queue members to new clients
       const { emitQueueMembersStatus } = require("./config/amiConfig");
@@ -81,7 +80,15 @@ ami
       const { emitAllQueueStats } = require("./controllers/queueControllers/realTimeQueueStats");
       emitAllQueueStats(socket);
 
-      // Handle request for current agent list - now uses enriched data
+      // Send current ongoing calls to new clients immediately
+      // socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
+      console.log(`📞 Sent ${Object.keys(state.ongoingCalls).length} ongoing calls to new client ${socket.id}`);
+
+      // Handle request for current agent list - now uses enriched data.
+      socket.on("on-going-calles", ()=>{
+        io.emit('ongoingCalls',Object.values(state.ongoingCalls))
+        io.emit('queueStatus', Object.values(state.queueCallers))
+      })
       socket.on("requestAgentList", () => {
         try {
           if (!global.amiReady) {

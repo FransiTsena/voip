@@ -220,14 +220,14 @@ async function updateCallLog(linkedId, updateData, options = {}) {
  */
 function emitQueueCallersStatus(io) {
   const flattened = state.queueCallers.map((caller) => {
-    const queueName = queueNameMap[caller.queue] || caller.queue;
     return {
       ...caller,
-      queue: queueName,
+      // caller.queue already contains the queue name from handleQueueCallerJoin
       waitTime: Math.floor((Date.now() - caller.waitStart) / 1000),
     };
   });
 
+  console.log(`📊 Emitting ${flattened.length} queue callers to all clients`);
   io.emit("queueStatus", flattened);
 }
 
@@ -418,7 +418,6 @@ function handleBridgeEnter(event, io, ami) {
         }
       }
     );
-
     // It's also a good idea to update the call log here, once you've decided to record
     updateCallLog(
       Linkedid,
@@ -434,27 +433,6 @@ function handleBridgeEnter(event, io, ami) {
       { upsert: true }
     );
   }
-
-  // Your original logic for the frontend
-  state.ongoingCalls[Linkedid] = {
-    caller: CallerIDNum,
-    callerName: CallerIDName,
-    agent: ConnectedLineNum,
-    agentName: ConnectedLineName,
-    state: "Talking",
-    startTime: Date.now(),
-    channels: Array.from(state.activeBridges[BridgeUniqueid].channels),
-  };
-
-  emitOngoingCallsStatus(io);
-}
-
-// --- Bridge Create Handler ---
-function handleBridgeCreate(event, io, ami) {
-  const { BridgeUniqueid } = event;
-  console.log(`Bridge ${BridgeUniqueid} created.`);
-  // Initialize bridge state if needed
-  // This is mainly for logging and debugging
 }
 
 // --- Bridge Destroy Handler ---
@@ -623,6 +601,9 @@ function handleQueueStatusComplete(io) {
 }
 
 function handleQueueCallerJoin(event, io) {
+  console.log(event);
+  console.log(event);
+  console.log(event);
   // console.log("Queue Mapping:", queueNameMap);
   // console.log("Queue Caller Join Event:", event);
   const { Queue, Uniqueid, CallerIDNum, Position, Linkedid } = event;
@@ -884,10 +865,7 @@ async function setupAmiEventListeners(ami, io) {
     setupQueueStatsListeners,
   } = require("../controllers/queueControllers/realTimeQueueStats");
   setupQueueStatsListeners(ami, io);
-  // -- Register all event handlers --
-  ami.on("BridgeCreate", (event) => {
-    handleBridgeCreate(event, io, ami);
-  });
+
   ami.on("BridgeEnter", (event) => handleBridgeEnter(event, io, ami));
   ami.on("BridgeDestroy", handleBridgeDestroy);
 
@@ -897,22 +875,6 @@ async function setupAmiEventListeners(ami, io) {
   ami.on("Hold", (event) => handleHold(event, io));
   ami.on("Unhold", (event) => handleUnhold(event, io));
 
-  // ami.on("MixMonitorStart", (event) => {
-  //   console.log("MixMonitorStart Event:", event);
-  //   // Handle MixMonitorStart if needed
-  // });
-  // ami.on("MixMonitorStop", (event) => {
-  //   console.log("MixMonitorStop Event:", event);
-  // });
-
-  // Handle MixMonitorStop if needed
-
-  // Queue Events
-  //   ami.on("QueueEntry",(event)=>{
-  //     console
-  // .log("QueueEntry Event received");
-  //     console.log("QueueEntry Event received", event);
-  //   })
   ami.on("QueueParams", handleQueueParams);
   ami.on("QueueMember", handleQueueMember);
   ami.on("QueueStatus", handleQueueStatus);
@@ -948,4 +910,5 @@ module.exports = {
   loadQueueNamesMap,
   loadAgentDataMap,
   emitAgentStatus,
+  emitOngoingCallsStatus,
 };

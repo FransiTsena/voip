@@ -2,7 +2,6 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import TopNav from "./components/TopNav";
 import LiveCalls from "./pages/Dashboard";
 import Sidebar from "./components/SideBar";
-import Agents from "./pages/Agents";
 import TableComponent from "./pages/ExtensionMestriks";
 import QueueManagement from "./pages/QueueManagement";
 import Report from "./pages/Report";
@@ -85,7 +84,7 @@ export default function App() {
       <Route path="/" element={<MainLayout />}>
         <Route path="report" element={<Report />} />
         <Route path="dashboard" element={<LiveCalls />} />
-        <Route path="agents" element={<Agents />} />
+        <Route path="agents" element={<AgentList />} />
         <Route path="agents/new" element={<RegistrationForm />} />
         <Route path="queues" element={<QueueManagement />} />
         <Route path="ivr-menu" element={<IVRMenus />} />

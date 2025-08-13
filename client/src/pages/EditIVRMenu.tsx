@@ -40,7 +40,7 @@ interface ErrorState { [key: string]: string; }
 
 const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensions, allQueues }) => {
   const handleEntryChange = (id: number, field: keyof IVREntry, value: string | number) => {
-    const newEntries = entries.map(entry =>
+    const newEntries = entries.map((entry: { id: number; }) =>
       entry.id === id ? { ...entry, [field]: value } : entry
     );
     setEntries(newEntries);
@@ -89,7 +89,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
         return (
           <select value={entry.value} onChange={e => handleEntryChange(entry.id, 'value', e.target.value)} className={commonSelectClass}>
             <option value="">Select Extension</option>
-            {allExtensions.map(ext => <option key={ext._id} value={ext.extension}>{ext.extension} ({ext.name})</option>)}
+            {allExtensions.map((ext: { _id: React.Key | null | undefined; extension: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; name: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; }) => <option key={ext._id} value={ext.extension}>{ext.extension} ({ext.name})</option>)}
           </select>
         );
       default:
@@ -101,7 +101,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
     <div className="bg-white shadow-md rounded-lg p-6 mt-6">
       <h2 className="text-xl font-semibold mb-4 text-indigo-700">Menu Entries</h2>
       <div className="space-y-4">
-        {entries.map((entry) => (
+        {entries.map((entry: IVREntry) => (
           <div key={entry.id} className="grid grid-cols-1 md:grid-cols-10 gap-3 items-center p-3 bg-gray-50 rounded-lg">
             <div className="md:col-span-2">
               <label className="text-sm font-medium text-gray-700">Digit(s)</label>
@@ -201,7 +201,7 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                     const ivrResponse = await axios.get(`${API_URL}/api/ivr/menu/${ivrId}`);
                     const fetchedIvrData = ivrResponse.data; // Confirmed: no 'data' wrapper for single IVR
 
-                    const entries = (fetchedIvrData.entries || []).map(entry => ({
+                    const entries = (fetchedIvrData.entries || []).map((entry: { _id: any; }) => ({
                         ...entry,
                         id: entry._id || Date.now() // Use existing _id for existing entries, new ID for new ones
                     }));
@@ -329,7 +329,7 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                         </div>
                     </div>
                 </div>
-                <IVREntries entries={ivr.entries} setEntries={(newEntries) => setIvr(prev => ({ ...prev, entries: newEntries }))} systemRecordings={systemRecordings} allIvrs={allIvrs} allExtensions={allExtensions} allQueues={allQueues} />
+                <IVREntries entries={ivr.entries} setEntries={(newEntries: any) => setIvr(prev => ({ ...prev, entries: newEntries }))} systemRecordings={systemRecordings} allIvrs={allIvrs} allExtensions={allExtensions} allQueues={allQueues} />
                 <div className="flex justify-end space-x-4 pt-4">
                     <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" disabled={submitting}>Cancel</button>
                     <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={submitting}>{submitting ? 'Saving...' : 'Save IVR'}</button>

@@ -618,7 +618,7 @@ function setupAgentListeners(ami, io) {
     // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
     if (!Interface || !Interface.startsWith("Local/")) return;
     const username = Interface.split("/")[1];
-    const exact_username = username.split('@')[0]
+    const exact_username = username.split("@")[0];
     if (!username) return;
 
     // Skip if extension doesn't exist in our database
@@ -627,7 +627,9 @@ function setupAgentListeners(ami, io) {
       return;
     }
 
-    console.log(`📞 Agent ${exact_username} called for queue ${Queue} - caller: ${CallerIDNum}`);
+    console.log(
+      `📞 Agent ${exact_username} called for queue ${Queue} - caller: ${CallerIDNum}`
+    );
 
     const agent = await getOrCreateAgent(exact_username);
 
@@ -635,7 +637,9 @@ function setupAgentListeners(ami, io) {
     agent.totalCallsToday += 1;
     agent.totalCallsOverall += 1;
 
-    console.log(`📊 Agent ${exact_username} total calls - Today: ${agent.totalCallsToday}, Overall: ${agent.totalCallsOverall}`);
+    console.log(
+      `📊 Agent ${exact_username} total calls - Today: ${agent.totalCallsToday}, Overall: ${agent.totalCallsOverall}`
+    );
 
     // Update agent activity
     agent.lastActivity = new Date();
@@ -647,7 +651,7 @@ function setupAgentListeners(ami, io) {
 
   // Listen to AgentConnect events (agent answers queue call) - More accurate than BridgeEnter
   ami.on("AgentConnect", async (event) => {
-    console.log("Agent Connect Event",event)
+    console.log("Agent Connect Event", event);
 
     const {
       MemberName,
@@ -660,11 +664,11 @@ function setupAgentListeners(ami, io) {
       Linkedid,
     } = event;
 
-    // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
+    // Extract username from Interface (e.g., "Local/1006@from-internal/n" -> "1006")
     if (!Interface || !Interface.startsWith("Local/")) return;
     const username = Interface.split("/")[1];
-    const exact_username = username.split('@')[0]
-    if (!username) return;
+    const exact_username = username.split("@")[0];
+    if (!exact_username) return;
 
     // Skip if extension doesn't exist in our database
     const exists = await extensionExists(exact_username);
@@ -672,8 +676,34 @@ function setupAgentListeners(ami, io) {
       return;
     }
 
+    console.log(
+      `🎯 AgentConnect: Agent ${exact_username} answered call from ${CallerIDNum} in queue ${Queue}`
+    );
+
     // Use the dedicated function to increment answered calls
     await incrementAnsweredCalls(exact_username, HoldTime, RingTime, io);
+
+    // Add to ongoing calls when agent connects (instead of BridgeEnter)
+    const amiState = require("../../config/amiConfig").state;
+    amiState.ongoingCalls[Linkedid] = {
+      caller: CallerIDNum,
+      callerName: CallerIDName,
+      agent: exact_username,
+      agentName: MemberName || `Agent ${exact_username}`,
+      state: "Talking",
+      startTime: Date.now(),
+      queue: Queue,
+      queueName: global.queueNameMap?.[Queue] || Queue,
+      channels: [Interface], // Agent's interface
+    };
+
+    // Emit ongoing calls update
+    const { emitOngoingCallsStatus } = require("../../config/amiConfig");
+    emitOngoingCallsStatus(io);
+
+    console.log(
+      `📞 Added ongoing call ${Linkedid} to dashboard (Agent: ${exact_username})`
+    );
 
     // Store call session for timing with queue info
     state.callSessions[Linkedid] = {
@@ -755,7 +785,7 @@ function setupAgentListeners(ami, io) {
     // Extract username from Interface (e.g., "PJSIP/1006" -> "1006")
     if (!Interface || !Interface.startsWith("Local/")) return;
     const username = Interface.split("/")[1];
-    const exact_username = username.split('@')[0]
+    const exact_username = username.split("@")[0];
     if (!exact_username) return;
 
     // Skip if extension doesn't exist in our database

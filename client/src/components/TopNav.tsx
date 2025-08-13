@@ -92,7 +92,7 @@ const TopNav = () => {
           <div className="flex items-center">
             <div className="flex-shrink-0 mr-6">
               <a href="/dashboard" className="text-xl font-bold text-gray-800 flex items-center">
-                <span className="text-blue-600">INSA</span>PBX
+                <span className="text-blue-600">Open</span>PBX
               </a>
             </div>
             <div className="flex space-x-6">
