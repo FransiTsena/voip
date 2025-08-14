@@ -110,8 +110,42 @@ const CallPopup = ({
                 {/* Controls or Answer/Reject */}
                 {isIncoming ? (
                     <div className="flex items-center space-x-6 mx-6">
-                        <button onClick={answer} className="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-bold text-lg w-32 h-12 rounded-[20px] shadow-lg transition-all">Answer</button>
-                        <button onClick={hangup} className="flex items-center justify-center bg-red-400 hover:bg-red-500 text-white font-bold text-lg w-32 h-12 rounded-[20px] shadow-lg transition-all">Reject</button>
+                        <button 
+                            onClick={() => {
+                                console.log('🟢 ANSWER BUTTON CLICKED IN CALLPOPUP');
+                                console.log('📞 CallPopup - incomingCall:', incomingCall);
+                                console.log('📞 CallPopup - callSession:', callSession);
+                                console.log('📞 CallPopup - answer function:', answer);
+                                console.log('📞 CallPopup - isIncoming:', isIncoming);
+                                if (typeof answer === 'function') {
+                                    console.log('✅ Calling answer function...');
+                                    answer();
+                                } else {
+                                    console.error('❌ Answer is not a function:', typeof answer);
+                                }
+                            }} 
+                            className="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white font-bold text-lg w-32 h-12 rounded-[20px] shadow-lg transition-all"
+                        >
+                            Answer
+                        </button>
+                        <button 
+                            onClick={() => {
+                                console.log('🔴 REJECT BUTTON CLICKED IN CALLPOPUP');
+                                console.log('📞 CallPopup - incomingCall:', incomingCall);
+                                console.log('📞 CallPopup - callSession:', callSession);
+                                console.log('📞 CallPopup - hangup function:', hangup);
+                                console.log('📞 CallPopup - isIncoming:', isIncoming);
+                                if (typeof hangup === 'function') {
+                                    console.log('✅ Calling hangup function...');
+                                    hangup();
+                                } else {
+                                    console.error('❌ Hangup is not a function:', typeof hangup);
+                                }
+                            }} 
+                            className="flex items-center justify-center bg-red-400 hover:bg-red-500 text-white font-bold text-lg w-32 h-12 rounded-[20px] shadow-lg transition-all"
+                        >
+                            Reject
+                        </button>
                     </div>
                 ) : (
                     <>

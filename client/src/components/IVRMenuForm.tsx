@@ -5,7 +5,7 @@ import axios from 'axios';
 import IVREntries from './ivr-componetns/IVREntries';
 
 const IVRMenuCreator = () => {
-  const API = import.meta.env.VITE_API_URL || 'https://localhost:4000';
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const [ivr, setIvr] = useState<IVRState>({
     name: '',
     description: '',

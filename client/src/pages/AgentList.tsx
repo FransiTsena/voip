@@ -16,7 +16,7 @@ const AgentList: React.FC = () => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [agentToDelete, setAgentToDelete] = useState<Agent | null>(null);
   const navigate = useNavigate();
-  const API = import.meta.env.VITE_API_URL || "https://localhost:4000";
+  const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
   useEffect(() => {
     const fetchAgents = async () => {

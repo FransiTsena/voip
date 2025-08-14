@@ -11,7 +11,7 @@ type Queue = {
 };
 
 const QueueList: React.FC = () => {
-  const API = import.meta.env.VITE_API_URL || 'https://localhost:4000';
+  const API = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const [queues, setQueues] = useState<Queue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

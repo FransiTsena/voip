@@ -19,7 +19,7 @@ type AuthContextType = {
 export const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const base_url = import.meta.env.VITE_API_URL || 'https://10.42.0.1:4000 ';
+  const base_url = import.meta.env.VITE_API_URL || 'http://10.42.0.1:4000 ';
   const [user, setUser] = useState<User>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);

@@ -20,7 +20,7 @@ interface Recording {
 }
 
 const SystemRecordingsList: React.FC = () => {
-    const baseUrl = import.meta.env.VITE_API_URL || 'https://localhost:4000';
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
   const [recordings, setRecordings] = useState<Recording[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

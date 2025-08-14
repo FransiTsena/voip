@@ -4,7 +4,7 @@ const util = require('util');
 const { writeFileWithSudo } = require('../../utils/sudo'); // Assuming this utility exists
 const { generateAsteriskQueueConfig, reloadAsteriskQueues } = require('./queueConfigGenerator');
 const { loadQueueNamesMap } = require('../../config/amiConfig');
-const execPromise = util.promisify(exec);
+
 
 // Main: Create Queue and regenerate all Queues in config
 const createQueue = async (req, res) => {

@@ -19,7 +19,7 @@ import { AgentFormData, initialAgentFormData } from '../types/agent';
 import FormRow from '../components/AGENT/FormRow';
 
 // --- API Base URL ---
-const API_URL = import.meta.env.VITE_API_URL || 'https://localhost:4000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
 const AgentForm: React.FC = () => {
   // *** CHANGE 1: Use 'id' from useParams instead of 'userExtension' ***

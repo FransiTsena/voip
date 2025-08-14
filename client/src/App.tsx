@@ -43,7 +43,7 @@ const MainLayout = () => {
 
   useEffect(() => {
     if (!socket) {
-      const newSocket = io(import.meta.env.VITE_API_URL || "https://localhost:4000");
+      const newSocket = io(import.meta.env.VITE_API_URL || "http://localhost:4000");
       newSocket.on("connect", () => setSocket(newSocket));
       return () => {
         newSocket.disconnect();

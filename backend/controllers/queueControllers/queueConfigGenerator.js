@@ -1,5 +1,10 @@
 // Helper: Generate Asterisk config for one Queue
 const generateAsteriskQueueConfig = (queue) => {
+  console.log(queue.strategy)
+  console.log(queue.strategy)
+  console.log(queue.strategy)
+  console.log(queue.strategy)
+  console.log(queue.strategy)
   // Note: This function uses the *saved Mongoose document* structure,
   // which now includes both top-level and nested fields.
   const settings = queue.generalSettings;
@@ -36,7 +41,7 @@ const generateAsteriskQueueConfig = (queue) => {
     config += `wrapuptime=${settings.wrapUpTime || 0}\n`;
     config += `maxlen=${settings.maxLen || 0}\n`;
     config += `servicelevel=${settings.serviceLevel || 60}\n`;
-    config += `strategy=${settings.strategy || 'ringall'}\n`;
+    config += `strategy=${queue.strategy || 'ringall'}\n`;
     config += `eventmemberstatus=${settings.eventMemberStatus || 'yes'}\n`;
     config += `eventwhencalled=${settings.eventWhenCalled || 'yes'}\n`;
     config += `reportholdtime=${settings.reportHoldTime || 'no'}\n`;
