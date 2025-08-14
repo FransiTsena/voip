@@ -4,7 +4,7 @@ import { Home, Phone, Settings, ChevronDown, ChevronUp, Layers, HardDrive, Share
 import { Link } from 'react-router-dom';
 
 const TopNav = () => {
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://localhost:4000';
 
   const [isApplicationsOpen, setIsApplicationsOpen] = useState(false);
   const [isConnectivityOpen, setIsConnectivityOpen] = useState(false);

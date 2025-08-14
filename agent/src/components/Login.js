@@ -40,7 +40,7 @@ const Login = ({ onSwitch }) => {
         <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-gray-200 via-gray-100 to-gray-300">
             <div className="backdrop-blur-md bg-white/70 p-12 rounded-[2.5rem] shadow-2xl w-full max-w-md flex flex-col items-center animate-fade-in border border-gray-100 relative" style={{ boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.18)' }}>
                 <div className="absolute -top-10 left-1/2 -translate-x-1/2 w-24 h-24 flex items-center justify-center rounded-full bg-white/80 border border-gray-200 shadow-lg">
-                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="https://www.w3.org/2000/svg">
                         <defs>
                             <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
                                 <stop offset="0%" stopColor="#e0e7ef" />

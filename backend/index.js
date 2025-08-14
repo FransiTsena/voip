@@ -25,7 +25,7 @@ const AMI_PORT = parseInt(process.env.AMI_PORT || 5038, 10);
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Be more specific in production, e.g., "http://localhost:3000"
+    origin: "*", // Be more specific in production, e.g., "https://localhost:3000"
     methods: ["GET", "POST", "PATCH"],
   },
 });

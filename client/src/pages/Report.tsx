@@ -194,7 +194,7 @@ const ReportDashboard: React.FC = () => {
           subtitle="Agents registered in the system"
           gradient="from-sky-50 to-white"
           icon={(
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <svg xmlns="https://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
               <path d="M7.5 6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm9 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM0 20.25C0 16.245 3.245 13 7.25 13h.5C11.755 13 15 16.245 15 20.25v.75H0v-.75Zm24 1.5h-7.5v-.75c0-2.338-.868-4.471-2.292-6.105A7.233 7.233 0 0 1 16.75 13h.5c4.005 0 7.25 3.245 7.25 7.25v1.5Z" />
             </svg>
           )}
@@ -205,7 +205,7 @@ const ReportDashboard: React.FC = () => {
           subtitle="Active call queues configured"
           gradient="from-amber-50 to-white"
           icon={(
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <svg xmlns="https://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
               <path d="M3 6a3 3 0 0 1 3-3h13a1 1 0 1 1 0 2H6a1 1 0 0 0 0 2h13a1 1 0 1 1 0 2H6a1 1 0 0 0 0 2h13a1 1 0 1 1 0 2H6a3 3 0 0 1-3-3V6Z" />
             </svg>
           )}
@@ -216,7 +216,7 @@ const ReportDashboard: React.FC = () => {
           subtitle="All calls in the selected period"
           gradient="from-indigo-50 to-white"
           icon={(
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <svg xmlns="https://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
               <path d="M1.5 4.5A3 3 0 0 1 4.5 1.5h2.25A3 3 0 0 1 9.75 4.5v.75a2.25 2.25 0 0 1-2.25 2.25H6.87a.75.75 0 0 0-.53.22l-.86.86a17.97 17.97 0 0 0 7.29 7.29l.86-.86a.75.75 0 0 0 .22-.53v-.63a2.25 2.25 0 0 1 2.25-2.25h.75a3 3 0 0 1 3 3V19.5a3 3 0 0 1-3 3H19.5A18 18 0 0 1 1.5 4.5Z" />
             </svg>
           )}
@@ -227,7 +227,7 @@ const ReportDashboard: React.FC = () => {
           subtitle="Calls answered and missed"
           gradient="from-emerald-50 to-white"
           icon={(
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
+            <svg xmlns="https://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5">
               <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2Zm1 15h-2v-2h2Zm0-4h-2V7h2Z" />
             </svg>
           )}

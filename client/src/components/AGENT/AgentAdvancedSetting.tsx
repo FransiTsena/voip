@@ -180,7 +180,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Edit Extension</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.editExtension ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -214,7 +214,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Add Extension</h4> {/* Section title from the screenshot */}
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.sipSettings ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -599,7 +599,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Extension Options</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.extensionOptions ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -716,7 +716,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Recording Options</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.recordingOptions ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -809,7 +809,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Dictation Services</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.dictationServices ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -879,7 +879,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Default Group Inclusion</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.defaultGroupInclusion ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -915,7 +915,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>DTLS</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.dtls ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"
@@ -996,7 +996,7 @@ const AdvancedSettings: React.FC<AdvancedSettingsProps> = React.memo(({ formData
         >
           <h4>Optional Destinations</h4>
           <svg
-            xmlns="http://www.w3.org/2000/svg"
+            xmlns="https://www.w3.org/2000/svg"
             className={`h-6 w-6 transform transition-transform duration-200 ${expandedSections.optionalDestinations ? 'rotate-180' : ''}`}
             fill="none"
             viewBox="0 0 24 24"

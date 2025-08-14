@@ -38,7 +38,7 @@ const DEST_TYPES: DestTypeOption[] = [
 ];
 
 // Base API URL from environment variables, defaulting for development
-const API_URL: string = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_URL: string = import.meta.env.VITE_API_URL || 'https://localhost:4000';
 
 const MiscApplicationForm: FC = () => {
   // State for form input data
