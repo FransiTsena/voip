@@ -16,11 +16,10 @@ interface ActiveCall {
   startTime: number;
   channels: any[];
 }
-
 // Provide base SIP config (TODO: replace with real credentials / dynamic data)
 const sipConfig = {
   wsUri: "ws://10.42.0.1:8088/ws",
-  sipUri: "sip:9001@10.42.0.1",
+  sipUri: "sip:9001@10.42.0.1", 
   password: "eyJhbGciOiJIUzI1", // placeholder
   displayName: "Supervisor"
 };
