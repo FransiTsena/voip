@@ -24,6 +24,10 @@ import AgentList from "./pages/AgentList";
 import LoginPage from "./auth/Login";
 import { useAuth } from "./context/AuthContext";
 import QueueStatistics from "./pages/QueueStatistics";
+import KnowledgeBase from "./pages/KnowledgeBase";
+import ArticleForm from "./pages/ArticleForm";
+import CannedResponseList from "./pages/CannedResponseList";
+import CannedResponseForm from "./pages/CannedResponseForm";
 
 // Loading component to display while checking authentication
 const Loading = () => {
@@ -101,6 +105,12 @@ export default function App() {
         <Route path="queues/edit/:id" element={<QueuePage />} />
         <Route path="agents/list" element={<AgentList />} />
         <Route path="queue-statistics" element={<QueueStatistics />} />
+        <Route path="kb" element={<KnowledgeBase />} />
+        <Route path="kb/new" element={<ArticleForm />} />
+        <Route path="kb/edit/:id" element={<ArticleForm />} />
+        <Route path="canned-responses" element={<CannedResponseList />} />
+        <Route path="canned-responses/new" element={<CannedResponseForm />} />
+        <Route path="canned-responses/edit/:id" element={<CannedResponseForm />} />
         <Route index element={<TableComponent />} />
       </Route>
     </Routes>

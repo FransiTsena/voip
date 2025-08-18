@@ -11,6 +11,8 @@ const useStore = create((set, get) => ({
   tickets: [],
   customers: [],
   articles: [],
+  selectedArticle: null,
+  cannedResponses: [],
   agent: null,
   token: !isWeb && typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null,
   shift: null,
@@ -73,6 +75,7 @@ const useStore = create((set, get) => ({
 
   // Actions
   selectTicket: (ticket) => set({ selectedTicket: ticket }),
+  setSelectedArticle: (article) => set({ selectedArticle: article }),
   fetchTickets: async () => {
     const token = get().token;
     const config = isWeb
@@ -96,6 +99,22 @@ const useStore = create((set, get) => ({
       : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
     const { data } = await axios.get(`${baseUrl}/kb/search?q=${query}`, config);
     set({ articles: data });
+  },
+  fetchArticleById: async (id) => {
+    const token = get().token;
+    const config = isWeb
+      ? { withCredentials: true }
+      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.get(`${baseUrl}/kb/${id}`, config);
+    set({ selectedArticle: data });
+  },
+  fetchCannedResponses: async (query = '') => {
+    const token = get().token;
+    const config = isWeb
+      ? { withCredentials: true }
+      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.get(`${baseUrl}/api/canned-responses?keyword=${query}`, config);
+    set({ cannedResponses: data });
   },
   startShift: async (agentId) => {
     // Use agent from store if agentId not provided

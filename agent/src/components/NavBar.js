@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaUserCog, FaSignOutAlt } from 'react-icons/fa';
+import { UserCog, LogOut } from 'lucide-react';
 import useStore from '../store/store';
 
 const NavBar = ({ onLogout, isSIPReady, agentStatus, setAgentStatus }) => {
@@ -50,7 +50,7 @@ const NavBar = ({ onLogout, isSIPReady, agentStatus, setAgentStatus }) => {
                     </div>
                     {agent && (
                         <div className="flex flex-col items-end mr-4">
-                            <span className="text-blue-500 font-bold text-lg flex items-center gap-2"><FaUserCog className="text-blue-200" /> {agent.name}</span>
+                            <span className="text-blue-500 font-bold text-lg flex items-center gap-2"><UserCog className="text-blue-200" /> {agent.name}</span>
                             <span className="text-blue-100 text-xs">{agent.email}</span>
                         </div>
                     )}
@@ -59,7 +59,7 @@ const NavBar = ({ onLogout, isSIPReady, agentStatus, setAgentStatus }) => {
                         onClick={onLogout}
                         title="Logout"
                     >
-                        <FaSignOutAlt className="text-lg" />
+                        <LogOut className="text-lg" />
                     </button>
                 </div>
             </nav>

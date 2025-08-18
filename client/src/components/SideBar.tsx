@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState, useContext, useEffect } from "react";
-import { Home, Users, ListOrdered, LineChart, LogOut, BarChart3, Menu, ChevronLeft, ChevronDown } from "lucide-react";
+import { Home, Users, ListOrdered, LineChart, LogOut, BarChart3, Menu, ChevronLeft, ChevronDown, BookText, MessageSquare } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
 
 const Sidebar = () => {
@@ -45,6 +45,16 @@ const Sidebar = () => {
       path: "/agents",
       name: "Agents",
       icon: <Users />,
+    },
+    {
+      path: "/kb",
+      name: "Knowledge Base",
+      icon: <BookText />,
+    },
+    {
+      path: "/canned-responses",
+      name: "Canned Responses",
+      icon: <MessageSquare />,
     },
     // // Misc Applications as a submenu
     // {
