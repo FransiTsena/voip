@@ -25,6 +25,9 @@ import LoginPage from "./auth/Login";
 import { useAuth } from "./context/AuthContext";
 import QueueStatistics from "./pages/QueueStatistics";
 import SupervisorList from "./pages/SupervisorList";
+import AgentPerformanceDashboard from "./pages/AgentPerformanceDashboard";
+import QueuePerformanceDashboard from "./pages/QueuePerformanceDashboard";
+import CustomReportBuilder from "./pages/CustomReportBuilder";
 
 // Loading component to display while checking authentication
 const Loading = () => {
@@ -103,6 +106,9 @@ export default function App() {
         <Route path="queues/edit/:id" element={<QueuePage />} />
         <Route path="agents/list" element={<AgentList />} />
         <Route path="queue-statistics" element={<QueueStatistics />} />
+        <Route path="metrics/agents" element={<AgentPerformanceDashboard />} />
+        <Route path="metrics/queues" element={<QueuePerformanceDashboard />} />
+        <Route path="reports/custom" element={<CustomReportBuilder />} />
         <Route index element={<TableComponent />} />
       </Route>
     </Routes>

@@ -25,6 +25,10 @@ const callLogSchema = new mongoose.Schema({
     transferCount: { type: Number, default: 0 }, // number of times call was transferred
     // Absolute path to the call recording on the server (set by AMI when MixMonitor starts)
     recordingPath: { type: String },
+    ticketId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Ticket',
+    },
     extra: { type: mongoose.Schema.Types.Mixed }, // for any additional info
 }, { timestamps: true });
 

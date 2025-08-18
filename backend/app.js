@@ -27,6 +27,7 @@ const contactRoutes = require('./routes/contactRoutes');
 const supervisorRoutes = require('./routes/supervisorRoutesV2');
 const extensionRoutes = require('./routes/extension');
 const userRoutes = require('./routes/userRoutes');
+const advancedMetricsRoutes = require('./routes/advancedMetricsRoutes');
 // =========================
 // App Initialization
 // =========================
@@ -91,6 +92,7 @@ app.use('/api/kb', kbRoutes);
 app.use('/api/metrics', metricsRoutes);
 const metricsTodayRoutes = require('./routes/metricsToday');
 app.use('/api/metrics', metricsTodayRoutes);
+app.use('/api/metrics/advanced', advancedMetricsRoutes);
 
 // Supervisor Routes
 app.use('/api/supervisors', supervisorRoutes);

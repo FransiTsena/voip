@@ -11,6 +11,7 @@ const {
 
 // Import queue statistics scheduler
 const { scheduleQueueStatsCalculation } = require("./utils/queueStatsScheduler");
+const { scheduleDailyMetricsCalculation } = require("./utils/dailyMetricsScheduler");
 
 // Import the setup function and state from our refactored AMI handler
 
@@ -56,6 +57,8 @@ ami
     
     // Initialize queue statistics scheduler
     scheduleQueueStatsCalculation();
+    // Initialize daily metrics scheduler
+    scheduleDailyMetricsCalculation();
     // Handle individual client (browser) connections.
     io.on("connection", (socket) => {
       console.log(`🔌 Client connected: ${socket.id}`);

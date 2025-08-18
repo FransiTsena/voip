@@ -32,6 +32,9 @@ const Sidebar = () => {
       submenus: [
         { path: "/report", name: "Metrics", icon: <BarChart3 /> },
         { path: "/call-history", name: "Call History", icon: <ListOrdered /> },
+        { path: "/metrics/agents", name: "Agent Performance", icon: <Users /> },
+        { path: "/metrics/queues", name: "Queue Performance", icon: <ListOrdered /> },
+        { path: "/reports/custom", name: "Custom Reports", icon: <BarChart3 /> },
       ],
     },
     {

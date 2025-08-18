@@ -21,7 +21,7 @@ const ticketSchema = new mongoose.Schema({
   },
   agentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Agent',
+    ref: 'User',
   },
   customerId: {
     type: mongoose.Schema.Types.ObjectId,
@@ -31,6 +31,10 @@ const ticketSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Comment',
   }],
+  callLogId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CallLog',
+  },
 }, { timestamps: true });
 
 const Ticket = mongoose.model('Ticket', ticketSchema);
