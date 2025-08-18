@@ -23,9 +23,10 @@ const metricsRoutes = require('./routes/metricsRoutes');
 const callRoutes = require('./routes/callRoutes');
 const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contactRoutes');
-const cannedResponseRoutes = require('./routes/cannedResponseRoutes');
 
-const supervisorRoutes = require('./routes/supervisorRoutes');
+const supervisorRoutes = require('./routes/supervisorRoutesV2');
+const extensionRoutes = require('./routes/extension');
+const userRoutes = require('./routes/userRoutes');
 // =========================
 // App Initialization
 // =========================
@@ -94,11 +95,16 @@ app.use('/api/metrics', metricsTodayRoutes);
 // Supervisor Routes
 app.use('/api/supervisors', supervisorRoutes);
 
+// Extension Routes
+app.use('/api/extensions', extensionRoutes);
+
+// User Routes
+app.use('/api/users', userRoutes);
+
 // Call Routes
 app.use('/api/call', callRoutes);
 app.use("/api/auth", authRoutes); // Register the new auth route
 app.use('/api/contacts', contactRoutes);
-app.use('/api/canned-responses', cannedResponseRoutes);
 // =========================
 // Export App
 // =========================

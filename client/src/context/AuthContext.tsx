@@ -5,7 +5,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 type User = {
   _id: string;
   email: string;
-  name: string;
+  displayName: string;
+  role: 'agent' | 'supervisor' | 'admin';
 } | null;
 
 type AuthContextType = {
@@ -30,10 +31,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const checkAuth = async () => {
       try {
         const response = await axios.get(
-          `${base_url}/api/supervisors/check-auth`,
+          `${base_url}/api/auth/me`,
           { withCredentials: true }
         );
-        setUser(response.data.data.user);
+        setUser(response.data.user);
         setIsAuthenticated(true);
       } catch (error) {
         setUser(null);
@@ -56,14 +57,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const login = async (email: string, password: string) => {
     try {
       const response = await axios.post(
-        `${base_url}/api/supervisors/login`,
+        `${base_url}/api/auth/login`,
         { email, password },
         { withCredentials: true }
       );
-      if (response.data.status !== "success") {
-        throw new Error(response.data.message || "Login failed");
-      }
-      setUser(response.data.data.user);
+      setUser(response.data);
       setIsAuthenticated(true);
       const redirectTo = location.state?.from?.pathname || "/dashboard";
       navigate(redirectTo, { replace: true });
@@ -79,7 +77,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const logout = async () => {
     try {
       await axios.post(
-        `${base_url}/api/supervisors/logout`,
+        `${base_url}/api/auth/logout`,
         {},
         { withCredentials: true }
       );

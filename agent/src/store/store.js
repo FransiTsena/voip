@@ -1,164 +1,127 @@
-
 import { create } from 'zustand';
 import axios from 'axios';
 import { baseUrl } from "../baseUrl";
 
-
-// Detect if running in a browser (web) or in an app (mobile/electron/react-native)
 const isWeb = typeof window !== 'undefined' && typeof window.document !== 'undefined';
 
 const useStore = create((set, get) => ({
   tickets: [],
   customers: [],
   articles: [],
-  selectedArticle: null,
-  cannedResponses: [],
-  agent: null,
+  user: null,
   token: !isWeb && typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null,
   shift: null,
   call: null,
   selectedTicket: null,
 
-  // Auth actions
-  setAuth: ({ agent, token }) => {
+  setAuth: ({ user, token }) => {
     if (!isWeb && typeof localStorage !== 'undefined') {
       localStorage.setItem('token', token);
-      set({ agent, token });
+      set({ user, token });
     } else {
-      set({ agent }); // token is managed by cookie for web
+      set({ user });
     }
   },
+
   refreshToken: async () => {
-    // Call backend refresh endpoint, update agent and SIP credentials
     try {
-      const res = await fetch(`${baseUrl}/auth/refresh`, {
+      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (res.ok && data.agent) {
-        const agentWithSip = { ...data.agent, sip: data.sip };
-        set({ agent: agentWithSip });
-        // Optionally update token if you use it on frontend
+      if (res.ok && data.user) {
+        const userWithSip = { ...data.user, sip: data.sip };
+        set({ user: userWithSip });
         if (data.token) set({ token: data.token });
       } else {
-        set({ agent: null });
+        set({ user: null });
       }
     } catch (err) {
-      set({ agent: null });
-    }
-  },
-  logout: async () => {
-    const res = await fetch(`${baseUrl}/auth/logout`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-    });
-    if (res.status === 200) {
-      localStorage.clear();
-      // cookieStore.clear();
-      set({ agent: null, token: null });
+      set({ user: null });
     }
   },
 
-  // Helper for auth check
+  logout: async () => {
+    try {
+      await fetch(`${baseUrl}/api/auth/logout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+    } finally {
+      localStorage.clear();
+      set({ user: null, token: null });
+    }
+  },
+
   isAuthenticated: () => {
     if (isWeb) {
-      // On web, rely on agent presence (cookie-based session)
-      return !!get().agent;
+      return !!get().user;
     } else {
-      // On app, require token
       return !!get().token;
     }
   },
 
-  // Actions
   selectTicket: (ticket) => set({ selectedTicket: ticket }),
-  setSelectedArticle: (article) => set({ selectedArticle: article }),
+
   fetchTickets: async () => {
     const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/tickets`, config);
+    const config = isWeb ? { withCredentials: true } : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.get(`${baseUrl}/api/tickets`, config);
     set({ tickets: data });
   },
+
   fetchCustomers: async () => {
     const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/customers`, config);
+    const config = isWeb ? { withCredentials: true } : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.get(`${baseUrl}/api/customers`, config);
     set({ customers: data });
   },
+
   searchArticles: async (query) => {
     const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/kb/search?q=${query}`, config);
+    const config = isWeb ? { withCredentials: true } : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.get(`${baseUrl}/api/kb/search?q=${query}`, config);
     set({ articles: data });
   },
-  fetchArticleById: async (id) => {
+
+  startShift: async () => {
+    const user = get().user;
+    if (!user || !user._id) throw new Error('User ID is required');
+    const agentId = user._id;
+
     const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/kb/${id}`, config);
-    set({ selectedArticle: data });
-  },
-  fetchCannedResponses: async (query = '') => {
-    const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/canned-responses?keyword=${query}`, config);
-    set({ cannedResponses: data });
-  },
-  startShift: async (agentId) => {
-    // Use agent from store if agentId not provided
-    if (!agentId) {
-      const agent = get().agent;
-      // Support both agent.id and agent._id
-      const id = agent && (agent.id || agent._id);
-      if (!id) throw new Error('Agent ID is required (no id or _id on agent)');
-      agentId = id;
-    }
-    const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.post(`${baseUrl}/shifts/start`, { agentId }, config);
+    const config = isWeb ? { withCredentials: true } : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.post(`${baseUrl}/api/shifts/start`, { agentId }, config);
     set({ shift: data });
   },
+
   endShift: async (shiftId) => {
     const token = get().token;
-    const config = isWeb
-      ? { withCredentials: true }
-      : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.post(`${baseUrl}/shifts/end`, { shiftId }, config);
+    const config = isWeb ? { withCredentials: true } : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
+    const { data } = await axios.post(`${baseUrl}/api/shifts/end`, { shiftId }, config);
     set({ shift: data });
   },
-  // Restore agent from cookie/session
-  fetchCurrentAgent: async () => {
+
+  fetchCurrentUser: async () => {
     try {
-      const res = await fetch(`${baseUrl}/auth/me`, {
+      const res = await fetch(`${baseUrl}/api/auth/me`, {
         method: 'GET',
         credentials: 'include',
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.agent) {
-          // Attach SIP credentials if present
-          const agentWithSip = data.sip ? { ...data.agent, sip: data.sip } : data.agent;
-          set({ agent: agentWithSip });
-        } else set({ agent: null });
+        if (data.user) {
+          const userWithSip = data.sip ? { ...data.user, sip: data.sip } : data.user;
+          set({ user: userWithSip });
+        } else set({ user: null });
       } else {
-        set({ agent: null });
+        set({ user: null });
       }
     } catch (err) {
-      set({ agent: null });
+      set({ user: null });
     }
   },
 }));

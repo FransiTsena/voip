@@ -3,7 +3,7 @@ import useStore from '../store/store';
 import { baseUrl } from '../baseUrl';
 
 const Login = ({ onSwitch }) => {
-    const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -14,18 +14,16 @@ const Login = ({ onSwitch }) => {
         setError('');
         setLoading(true);
         try {
-            console.log("baseUrl", baseUrl)
-            const res = await fetch(`${baseUrl}/auth/login`, {
+            const res = await fetch(`${baseUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password }),
+                body: JSON.stringify({ email, password }),
                 credentials: 'include'
             });
             const data = await res.json();
-            if (res.ok && data.agent) {
-                // Attach SIP credentials to agent for SIPProvider
-                const agentWithSip = { ...data.agent, sip: data.sip };
-                setAuth({ agent: agentWithSip });
+            if (res.ok && data.user) {
+                const userWithSip = { ...data.user, sip: data.sip };
+                setAuth({ user: userWithSip, token: data.token });
             } else {
                 setError(data.message || 'Login failed. Please check your credentials.');
             }
@@ -62,10 +60,10 @@ const Login = ({ onSwitch }) => {
                         </div>
                     )}
                     <input
-                        type="text"
-                        placeholder="Username"
-                        value={username}
-                        onChange={e => setUsername(e.target.value)}
+                        type="email"
+                        placeholder="Email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
                         className="w-full p-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-gray-400 transition bg-gray-50 text-gray-700 font-medium placeholder-gray-400 shadow-sm"
                         required
                         autoFocus

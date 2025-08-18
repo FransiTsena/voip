@@ -4,18 +4,17 @@ import Login from './Login';
 import Register from './Register';
 
 const RequireAuth = ({ children }) => {
-    const agent = useStore(state => state.agent);
-    const fetchCurrentAgent = useStore(state => state.fetchCurrentAgent);
+    const user = useStore(state => state.user);
+    const fetchCurrentUser = useStore(state => state.fetchCurrentUser);
 
     useEffect(() => {
-        if (!agent) {
-            fetchCurrentAgent();
+        if (!user) {
+            fetchCurrentUser();
         }
-    }, [agent, fetchCurrentAgent]);
+    }, [user, fetchCurrentUser]);
 
-    if (!agent) {
+    if (!user) {
         return <Login />;
-        // return <Register />;
     }
     return children;
 };

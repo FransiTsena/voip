@@ -1,10 +1,11 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState, useContext, useEffect } from "react";
-import { Home, Users, ListOrdered, LineChart, LogOut, BarChart3, Menu, ChevronLeft, ChevronDown, BookText, MessageSquare } from "lucide-react";
-import { AuthContext } from "../context/AuthContext";
+import { Home, Users, ListOrdered, LineChart, LogOut, BarChart3, Menu, ChevronLeft, ChevronDown, UserCog } from "lucide-react";
+import { AuthContext, useAuth } from "../context/AuthContext";
 
 const Sidebar = () => {
   const { logout } = useContext(AuthContext) ?? {};
+  const { user } = useAuth();
   const navigate = useNavigate();
   // Persist collapsed state across sessions
   const [collapsed, setCollapsed] = useState<boolean>(() => {
@@ -46,38 +47,15 @@ const Sidebar = () => {
       name: "Agents",
       icon: <Users />,
     },
-    {
-      path: "/kb",
-      name: "Knowledge Base",
-      icon: <BookText />,
-    },
-    {
-      path: "/canned-responses",
-      name: "Canned Responses",
-      icon: <MessageSquare />,
-    },
-    // // Misc Applications as a submenu
-    // {
-    //   name: "Misc App",
-    //   icon: <FaUsers />, // You might want a different icon for misc applications
-    //   submenus: [
-    //     { path: "/new-misc-application", name: "Creat New", icon: <FaListAlt /> },
-    //     { path: "/misc-applications" , name: "Misc Applications", icon: <FaPlus /> },
-    //   ],
-    // },
-
-    // IVR Menus and System Recordings as submenus
-    // {
-    //   name: "IVR",
-    //   icon: <FaListOl />,
-    //   submenus: [
-    //     { path: "/ivr-menu", name: "IVR Menus", icon: <FaListAlt /> },
-    //     { path: "/new-ivr", name: "New IVR", icon: <FaPlus /> },
-    //     { path: "/system-recordings", name: "Recordings", icon: <FaUsers /> },
-    //     { path: "/system-recordings-upload", name: "Upload Recording", icon: <FaHome /> },
-    //   ],
-    // },
   ];
+
+  if (user && user.role === 'admin') {
+    navItems.push({
+      path: "/supervisors",
+      name: "Supervisors",
+      icon: <UserCog />,
+    });
+  }
 
   return (
     <aside

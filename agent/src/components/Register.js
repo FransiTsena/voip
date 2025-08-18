@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { baseUrl } from '../baseUrl';
 
 const Register = ({ onSwitch }) => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [name, setName] = useState('');
+    const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [userExtension, setUserExtension] = useState('');
+    const [queues, setQueues] = useState('');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -14,15 +15,26 @@ const Register = ({ onSwitch }) => {
         setError('');
         setSuccess('');
         try {
-            const res = await fetch(`${baseUrl}/auth/register`, {
+            const res = await fetch(`${baseUrl}/api/auth/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password, name, email })
+                body: JSON.stringify({
+                    displayName,
+                    email,
+                    password,
+                    role: 'agent',
+                    userExtension,
+                    queues: queues.split(',').map(q => q.trim())
+                })
             });
             const data = await res.json();
             if (res.ok) {
                 setSuccess('Registration successful! You can now log in.');
-                setUsername(''); setPassword(''); setName(''); setEmail('');
+                setDisplayName('');
+                setEmail('');
+                setPassword('');
+                setUserExtension('');
+                setQueues('');
             } else {
                 setError(data.message || 'Registration failed');
             }
@@ -39,9 +51,17 @@ const Register = ({ onSwitch }) => {
                 {success && <div className="text-green-500 mb-2">{success}</div>}
                 <input
                     type="text"
-                    placeholder="Username"
-                    value={username}
-                    onChange={e => setUsername(e.target.value)}
+                    placeholder="Display Name"
+                    value={displayName}
+                    onChange={e => setDisplayName(e.target.value)}
+                    className="w-full mb-3 p-2 border rounded"
+                    required
+                />
+                <input
+                    type="email"
+                    placeholder="Email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
                     className="w-full mb-3 p-2 border rounded"
                     required
                 />
@@ -55,16 +75,17 @@ const Register = ({ onSwitch }) => {
                 />
                 <input
                     type="text"
-                    placeholder="Name"
-                    value={name}
-                    onChange={e => setName(e.target.value)}
+                    placeholder="User Extension"
+                    value={userExtension}
+                    onChange={e => setUserExtension(e.target.value)}
                     className="w-full mb-3 p-2 border rounded"
+                    required
                 />
                 <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
+                    type="text"
+                    placeholder="Queues (comma-separated)"
+                    value={queues}
+                    onChange={e => setQueues(e.target.value)}
                     className="w-full mb-3 p-2 border rounded"
                 />
                 <button type="submit" className="w-full bg-green-500 text-white p-2 rounded">Register</button>

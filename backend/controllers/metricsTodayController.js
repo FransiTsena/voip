@@ -1,5 +1,5 @@
 const Shift = require('../models/shiftModel');
-const Agent = require('../models/agent');
+const User = require('../models/userModel');
 const asyncHandler = require('express-async-handler');
 
 // @desc    Get today's agent shifts only
@@ -9,8 +9,8 @@ const getAgentTodayShifts = asyncHandler(async (req, res) => {
     const { agentId } = req.params;
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const agent = await Agent.findById(agentId).select('name username email');
-    if (!agent) {
+    const agent = await User.findById(agentId).select('displayName email userExtension');
+    if (!agent || agent.role !== 'agent') {
         return res.status(404).json({ error: 'Agent not found' });
     }
     const now = new Date();

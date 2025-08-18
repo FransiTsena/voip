@@ -17,208 +17,7 @@ import axios from 'axios';
 import Sidebar from './Sidebar';
 import ContactSection from './ContactSection';
 import { baseUrl } from '../baseUrl';
-import KnowledgeBaseSearch from './KnowledgeBaseSearch';
-import { BookOpen, X } from 'lucide-react';
-import CannedResponseSearch from './CannedResponseSearch';
 
-const Header = ({ handleSearch, search, setSearch }) => (
-  <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-    {/* Removed Knowledge Base search field */}
-    <div className="flex items-center space-x-4">
-      <Bell className="text-2xl text-gray-500 hover:text-gray-700 transition-colors" title="Real-time Alerts" />
-      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold tracking-wide">System: OK</span>
-    </div>
-  </div>
-);
-
-const ShiftReportPanel = ({ loadingShifts, shiftReport, reasonEdits, handleReasonChange, handleReasonSubmit, reasonLoading, setShiftPage }) => (
-  <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in border border-gray-200">
-    <div className="flex items-center justify-between">
-      <h2 className="text-2xl font-bold text-gray-800">Today's Shift Sessions</h2>
-    </div>
-    {loadingShifts ? (
-      <div className="text-center py-8 text-gray-500">Loading shifts...</div>
-    ) : !shiftReport || shiftReport.shifts.length === 0 ? (
-      <div className="text-center py-8 text-gray-500">No shift records for today.</div>
-    ) : (
-      <>
-        <div className="mb-4 flex flex-col md:flex-row md:items-center md:justify-between text-sm text-gray-600">
-          {shiftReport.agent && (
-            <div>Agent: <span className="font-semibold">{shiftReport.agent.name || shiftReport.agent.username}</span> ({shiftReport.agent.username})</div>
-          )}
-          <div>Total Shifts: <span className="font-semibold">{shiftReport.totalShifts}</span></div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
-              <tr>
-                <th className="p-3">Start Time</th>
-                <th className="p-3">End Time</th>
-                <th className="p-3 text-center">Duration (s)</th>
-                <th className="p-3 text-center">Ongoing</th>
-                <th className="p-3">Reason</th>
-                <th className="p-3 text-center">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {shiftReport.shifts.map((shift, idx) => (
-                <tr key={idx} className={`hover:bg-gray-50 ${shift.ongoing ? "bg-yellow-50" : ""}`}>
-                  <td className="p-3">{shift.startTime ? new Date(shift.startTime).toLocaleString() : '-'}</td>
-                  <td className="p-3">{shift.endTime ? new Date(shift.endTime).toLocaleString() : (shift.ongoing ? 'Ongoing' : '-')}</td>
-                  <td className="p-3 text-center">{Math.round(shift.duration)}</td>
-                  <td className="p-3 text-center">{shift.ongoing ? 'Yes' : 'No'}</td>
-                  <td className="p-3">
-                    {shift.ongoing || !shift.reason ? (
-                      <input
-                        type="text"
-                        className="w-full bg-gray-100 border-gray-300 rounded px-2 py-1 text-sm focus:ring-indigo-500 focus:border-indigo-500"
-                        value={reasonEdits[shift._id] || shift.reason || ''}
-                        onChange={e => handleReasonChange(shift._id, e.target.value)}
-                        placeholder="Enter reason..."
-                        disabled={reasonLoading}
-                      />
-                    ) : (
-                      shift.reason
-                    )}
-                  </td>
-                  <td className="p-3 text-center">
-                    {(shift.ongoing || !shift.reason) && reasonEdits[shift._id] ? (
-                      <button
-                        className="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs hover:bg-indigo-700 transition-colors"
-                        onClick={() => handleReasonSubmit(shift._id)}
-                        disabled={reasonLoading}
-                      >
-                        Save
-                      </button>
-                    ) : null}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {/* Pagination Controls */}
-        <div className="flex justify-end items-center mt-4 space-x-2">
-          <button
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setShiftPage(p => Math.max(1, p - 1))}
-            disabled={shiftReport.page === 1}
-          >Prev</button>
-          <span className="px-4 py-2 text-sm font-medium text-gray-700">Page {shiftReport.page} of {shiftReport.totalPages}</span>
-          <button
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => setShiftPage(p => p < shiftReport.totalPages ? p + 1 : p)}
-            disabled={shiftReport.page >= shiftReport.totalPages}
-          >Next</button>
-        </div>
-      </>
-    )}
-  </div>
-);
-
-const QueueWaitingReportPanel = ({ queueWaitingReport }) => (
-  <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in border border-gray-200">
-    <h2 className="text-2xl font-bold text-gray-800">Queue Waiting Report</h2>
-    {queueWaitingReport.length > 0 ? (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {queueWaitingReport.map((queue, index) => (
-          <div key={index} className="bg-green-50 rounded-xl p-4 transition-all duration-300 hover:shadow-md hover:scale-105">
-            <div className="text-sm font-semibold text-green-800 mb-1">Queue: {queue.queue}</div>
-            <div className="text-3xl font-bold text-green-600">{queue.waitingCount} <span className="text-lg font-medium">waiting</span></div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <div className="text-center py-8 text-gray-500">No queues with waiting calls.</div>
-    )}
-  </div>
-);
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="p-4 bg-gray-800 text-white rounded-lg shadow-lg">
-        <p className="font-bold">{label}</p>
-        {payload.map((pld, index) => (
-          <div key={index} style={{ color: pld.fill }}>
-            {`${pld.name}: ${pld.value}`}
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  return null;
-};
-
-const StatsPanel = ({ statsLoading, statsError, agentStats, simulatedOnlineMinutes, simulatedOnlineSeconds }) => (
-  <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in border border-gray-200">
-    <div className="flex items-center justify-between">
-      <h2 className="text-2xl font-bold text-gray-800">Agent Performance Overview</h2>
-      <span className="text-sm font-medium text-gray-500">Today</span>
-    </div>
-    {statsLoading ? (
-      <div className="text-center py-8 text-gray-500">Loading stats...</div>
-    ) : statsError ? (
-      <div className="text-center py-8 text-red-600 bg-red-50 border border-red-200 rounded-md">{statsError}</div>
-    ) : agentStats ? (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Calls Overview Card */}
-        <div className="bg-gray-50 rounded-xl p-4 transition-all duration-300 hover:shadow-md hover:scale-105">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-700">Calls Overview</h3>
-            <div className="text-3xl font-bold text-indigo-600">{agentStats.totalCalls || 0}</div>
-          </div>
-          <ResponsiveContainer width="100%" height={150}>
-            <BarChart data={[{ name: 'Calls', Handled: agentStats.callsHandled || 0, Missed: agentStats.missedCalls || 0 }]}>
-              <XAxis dataKey="name" tickLine={false} axisLine={false} />
-              <YAxis allowDecimals={false} tickLine={false} axisLine={false} />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend iconType="circle" />
-              <Bar dataKey="Handled" fill="#4f46e5" radius={[4, 4, 0, 0]} onClick={() => console.log('Filtering by Handled')} />
-              <Bar dataKey="Missed" fill="#ef4444" radius={[4, 4, 0, 0]} onClick={() => console.log('Filtering by Missed')} />
-            </BarChart>
-          </ResponsiveContainer>
-          <div className="mt-4 text-center text-sm font-medium text-gray-600">
-            Avg. Duration: {agentStats.avgDuration ? agentStats.avgDuration.toFixed(1) : 0}s
-          </div>
-        </div>
-        {/* Tickets & Online Card */}
-        <div className="bg-gray-50 rounded-xl p-4 transition-all duration-300 hover:shadow-md hover:scale-105">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-700">Tickets & Online</h3>
-            <div className="text-3xl font-bold text-green-600">{agentStats.ticketsResolved || 0}</div>
-          </div>
-          <ResponsiveContainer width="100%" height={150}>
-            <PieChart>
-              <Pie
-                data={[{ name: 'Tickets Resolved', value: agentStats.ticketsResolved || 0 }, { name: 'Online Sessions', value: agentStats.onlineTime || 0 }]}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                innerRadius={40}
-                outerRadius={60}
-                paddingAngle={5}
-                fill="#8884d8"
-                onClick={(data) => console.log(`Filtering by ${data.name}`)}
-              >
-                <Cell key="tickets" fill="#10b981" />
-                <Cell key="online" fill="#f59e0b" />
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div className="mt-4 text-center text-sm font-medium text-gray-600">
-            Online Time: {simulatedOnlineMinutes.toString().padStart(2, '0')}:{simulatedOnlineSeconds.toString().padStart(2, '0')}
-          </div>
-        </div>
-      </div>
-    ) : (
-      <div className="text-center py-8 text-gray-500">No stats available.</div>
-    )}
-  </div>
-);
 
 const Dashboard = () => {
   // Pagination state for shift report
@@ -249,7 +48,7 @@ const Dashboard = () => {
     }
     setReasonLoading(false);
   };
-  const agent = useStore(state => state.agent);
+  const user = useStore(state => state.user);
   const logout = useStore(state => state.logout);
   const [redirect, setRedirect] = useState(false);
   const [dialNumber, setDialNumber] = useState("");
@@ -262,25 +61,23 @@ const Dashboard = () => {
   const [queueWaitingReport, setQueueWaitingReport] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showKeypad, setShowKeypad] = useState(false);
-  const [showKBPopup, setShowKBPopup] = useState(false);
-  const [showCannedPopup, setShowCannedPopup] = useState(false);
-  // Dialog state moved to main return block below
   const [shiftReport, setShiftReport] = useState({ agent: null, shifts: [], totalShifts: 0, totalDuration: 0 });
   const [loadingShifts, setLoadingShifts] = useState(false);
 
   // Define fetchShiftReport so it can be called from anywhere
   const fetchShiftReport = async (page = 1) => {
-    if (!agent || !(agent._id || agent.id)) return;
+    if (!user || !user._id) return;
     setLoadingShifts(true);
     try {
-      const res = await fetch(`${baseUrl}/metrics/agent/${agent._id || agent.id}/shifts/today?page=${page}&limit=${shiftsPerPage}`);
+      const res = await fetch(`${baseUrl}/metrics/agent/${user._id}/shifts/today?page=${page}&limit=${shiftsPerPage}`);
       const data = await res.json();
       setShiftReport({
-        agent: data.agent,
+        agent: data.user,
         shifts: data.shifts || [],
         totalShifts: data.totalShifts || 0,
         totalDuration: data.totalDuration || 0,
         page: data.page || 1,
+        totalPages: data.totalPages || 1,
       });
     } catch (err) {
       setShiftReport({ agent: null, shifts: [], totalShifts: 0, totalDuration: 0, page: 1, totalPages: 1 });
@@ -290,11 +87,11 @@ const Dashboard = () => {
 
   useEffect(() => {
     async function loadStats() {
-      if (agent && (agent._id || agent.id)) {
+      if (user && user._id) {
         setStatsLoading(true);
         setStatsError(null);
         try {
-          const stats = await fetchAgentDailyStats(agent._id || agent.id);
+          const stats = await fetchAgentDailyStats(user._id);
           setAgentStats(stats);
         } catch (err) {
           setStatsError('Failed to load stats');
@@ -308,7 +105,7 @@ const Dashboard = () => {
     // Reset simulated minutes when agentStats change
     setSimulatedOnlineMinutes(0);
     setSimulatedOnlineSeconds(0);
-  }, [agent, shiftPage]);
+  }, [user, shiftPage]);
 
 
   useEffect(() => {
@@ -382,35 +179,214 @@ const Dashboard = () => {
         setAgentStatus={setAgentStatus}
       />
 
-      <div className="flex h-[calc(100vh-68px)]  text-gray-800">
+      <div className="flex h-[calc(100vh-68px)] bg-gray-100 text-gray-800">
+        {/* Agent Status Controls moved to NavBar */}
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} tabs={["dashboard", "contacts", "analytics"]} />
         <main className="flex-1 overflow-y-auto px-8 py-6">
           <div className="max-w-5xl mx-auto flex flex-col space-y-8">
-            {/* Top action buttons for dialogs */}
-            <div className="flex gap-4 justify-end mb-4">
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700 transition"
-                onClick={() => setShowKBPopup(true)}
-              >
-                <BookOpen size={20} />
-                Knowledge Base
-              </button>
-              <button
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-semibold shadow hover:bg-blue-600 transition"
-                onClick={() => setShowCannedPopup(true)}
-              >
-                <span className="inline-block w-4 h-4 bg-blue-200 rounded-full mr-1" />
-                Canned Answers
-              </button>
-            </div>
             {activeTab === "dashboard" && (
               <>
-                <Header handleSearch={handleSearch} search={search} setSearch={setSearch} />
+                {/* Search + Alerts */}
+                <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
+                  <form onSubmit={handleSearch} className="flex flex-1 max-w-md bg-white rounded-lg shadow-inner overflow-hidden">
+                    <input
+                      type="text"
+                      className="flex-1 px-4 py-3 text-base focus:outline-none"
+                      placeholder="Search Knowledge Base..."
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                    />
+                    <button type="submit" className="px-5 bg-indigo-500 hover:bg-indigo-600 transition-colors text-white font-semibold">
+                      Search
+                    </button>
+                  </form>
+                  <div className="flex items-center space-x-4">
+                    <Bell className="text-2xl text-gray-600 hover:text-gray-800 transition-colors" title="Real-time Alerts" />
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold tracking-wide">System: OK</span>
+                  </div>
+                </div>
 
-                <StatsPanel statsLoading={statsLoading} statsError={statsError} agentStats={agentStats} simulatedOnlineMinutes={simulatedOnlineMinutes} simulatedOnlineSeconds={simulatedOnlineSeconds} />
+                {/* Stats Panel with Animated Graphs and Numbers */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-extrabold text-indigo-800">Agent Performance Overview</h2>
+                    <span className="text-sm text-gray-500">Today</span>
+                  </div>
+                  {statsLoading ? (
+                    <div className="text-indigo-600 font-semibold">Loading...</div>
+                  ) : statsError ? (
+                    <div className="text-red-600 font-semibold">{statsError}</div>
+                  ) : agentStats ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                      {/* Bar Chart for Calls with Numbers */}
+                      <div className="bg-indigo-50 rounded-xl shadow-sm border border-indigo-100 p-4 relative">
+                        <div className="font-bold text-indigo-700 mb-2">Calls Overview</div>
+                        <div className="absolute top-4 right-6 flex flex-col items-end space-y-1">
+                          <div className="text-xs text-gray-500">Total</div>
+                          <div className="text-3xl font-bold text-indigo-600 animate-count">{agentStats.totalCalls || 0}</div>
+                          <div className="text-xs text-gray-500">Missed</div>
+                          <div className="text-3xl font-bold text-red-500 animate-count">{agentStats.missedCalls || 0}</div>
+                          <div className="text-xs text-gray-500">Handled</div>
+                          <div className="text-3xl font-bold text-blue-800 animate-count">{agentStats.callsHandled || 0}</div>
+                        </div>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <BarChart data={[{
+                            name: 'Calls',
+                            Total: agentStats.totalCalls || 0,
+                            Missed: agentStats.missedCalls || 0,
+                            Handled: agentStats.callsHandled || 0
+                          }]}
+                          >
+                            <XAxis dataKey="name" />
+                            <YAxis allowDecimals={false} />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="Total" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="Missed" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                            <Bar dataKey="Handled" fill="#2563eb" radius={[8, 8, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div className="mt-3 text-center">
+                          <span className="text-xl font-semibold text-purple-700">Avg Duration: {agentStats.avgDuration ? agentStats.avgDuration.toFixed(1) : 0} s</span>
+                        </div>
+                      </div>
+                      {/* Pie Chart for Tickets & Online with Numbers */}
+                      <div className="bg-yellow-50 rounded-xl shadow-sm border border-yellow-100 p-4 relative">
+                        <div className="font-bold text-yellow-700 mb-2">Tickets & Online</div>
+                        <div className="absolute top-4 right-6 flex flex-col items-end space-y-1">
+                          <div className="text-xs text-gray-500">Tickets</div>
+                          <div className="text-3xl font-bold text-green-600 animate-count">{agentStats.ticketsResolved || 0}</div>
+                          <div className="text-xs text-gray-500">Online Sessions</div>
+                          <div className="text-3xl font-bold text-yellow-600 animate-count">{agentStats.onlineTime || 0}</div>
+                          <div className="text-xs text-gray-500">Online Time</div>
+                          <div className="text-3xl font-bold text-yellow-600 animate-count">{simulatedOnlineMinutes.toString().padStart(2, '0')}:{simulatedOnlineSeconds.toString().padStart(2, '0')}</div>
+                        </div>
+                        <ResponsiveContainer width="100%" height={200}>
+                          <PieChart>
+                            <Pie
+                              data={[{ name: 'Tickets', value: agentStats.ticketsResolved || 0 }, { name: 'Online Sessions', value: agentStats.onlineTime || 0 }]}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={60}
+                              fill="#34d399"
+                              label
+                            >
+                              <Cell key="tickets" fill="#10b981" />
+                              <Cell key="online" fill="#f59e42" />
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <div className="mt-3 text-center">
+                          <span className="text-xl font-semibold text-yellow-600">Online: {simulatedOnlineMinutes.toString().padStart(2, '0')}:{simulatedOnlineSeconds.toString().padStart(2, '0')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-gray-400">No stats available</div>
+                  )}
+                </div>
 
-                <ShiftReportPanel loadingShifts={loadingShifts} shiftReport={shiftReport} reasonEdits={reasonEdits} handleReasonChange={handleReasonChange} handleReasonSubmit={handleReasonSubmit} reasonLoading={reasonLoading} setShiftPage={setShiftPage} />
-                <QueueWaitingReportPanel queueWaitingReport={queueWaitingReport} />
+                {/* Shift Report Panel with Pagination and Reason Editing */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-extrabold text-indigo-800">Today's Shift Sessions</h2>
+                  </div>
+                  {loadingShifts ? (
+                    <div className="text-indigo-600 font-semibold">Loading...</div>
+                  ) : !shiftReport || shiftReport.shifts.length === 0 ? (
+                    <div className="text-gray-400">No shift records for today.</div>
+                  ) : (
+                    <>
+                      <div className="mb-2 flex flex-col md:flex-row md:items-center md:justify-between">
+                        {shiftReport.agent && (
+                          <div className="text-sm text-gray-600">Agent: <span className="font-bold">{shiftReport.agent.name || shiftReport.agent.username}</span> ({shiftReport.agent.username})</div>
+                        )}
+                        <div className="text-sm text-gray-600">Total Shifts: <span className="font-bold">{shiftReport.totalShifts}</span></div>
+                      </div>
+                      <table className="w-full text-sm border">
+                        <thead>
+                          <tr className="bg-indigo-50">
+                            <th className="p-2 border">Start Time</th>
+                            <th className="p-2 border">End Time</th>
+                            <th className="p-2 border">Duration (s)</th>
+                            <th className="p-2 border">Ongoing</th>
+                            <th className="p-2 border">Reason</th>
+                            <th className="p-2 border">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {shiftReport.shifts.map((shift, idx) => (
+                            <tr key={idx} className={shift.ongoing ? "bg-yellow-50" : ""}>
+                              <td className="p-2 border">{shift.startTime ? new Date(shift.startTime).toLocaleString() : '-'}</td>
+                              <td className="p-2 border">{shift.endTime ? new Date(shift.endTime).toLocaleString() : (shift.ongoing ? 'Ongoing' : '-')}</td>
+                              <td className="p-2 border">{Math.round(shift.duration)}</td>
+                              <td className="p-2 border">{shift.ongoing ? 'Yes' : 'No'}</td>
+                              <td className="p-2 border">
+                                {shift.ongoing || !shift.reason ? (
+                                  <input
+                                    type="text"
+                                    className="border rounded px-2 py-1 text-sm"
+                                    value={reasonEdits[shift._id] || shift.reason || ''}
+                                    onChange={e => handleReasonChange(shift._id, e.target.value)}
+                                    placeholder="Enter reason..."
+                                    disabled={reasonLoading}
+                                  />
+                                ) : (
+                                  shift.reason
+                                )}
+                              </td>
+                              <td className="p-2 border">
+                                {(shift.ongoing || !shift.reason) && reasonEdits[shift._id] ? (
+                                  <button
+                                    className="px-3 py-1 bg-indigo-500 text-white rounded text-xs"
+                                    onClick={() => handleReasonSubmit(shift._id)}
+                                    disabled={reasonLoading}
+                                  >
+                                    Save
+                                  </button>
+                                ) : null}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {/* Pagination Controls */}
+                      <div className="flex justify-end items-center mt-4 space-x-2">
+                        <button
+                          className="px-3 py-1 bg-gray-200 rounded"
+                          onClick={() => setShiftPage(p => Math.max(1, p - 1))}
+                          disabled={shiftReport.page === 1}
+                        >Prev</button>
+                        <span className="px-2">Page {shiftReport.page} of {shiftReport.totalPages}</span>
+                        <button
+                          className="px-3 py-1 bg-gray-200 rounded"
+                          onClick={() => setShiftPage(p => p < shiftReport.totalPages ? p + 1 : p)}
+                          disabled={shiftReport.page >= shiftReport.totalPages}
+                        >Next</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Queue Waiting Report */}
+                <div className="bg-white rounded-2xl shadow-lg p-6 space-y-4 animate-fade-in">
+                  <h2 className="text-2xl font-extrabold text-indigo-800">Queue Waiting Report</h2>
+                  {queueWaitingReport.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {queueWaitingReport.map((queue, index) => (
+                        <div key={index} className="p-4 bg-green-50 rounded-xl shadow-sm border border-green-100">
+                          <div className="font-bold text-green-700 mb-1">Queue: {queue.queue}</div>
+                          <div className="text-xl font-semibold text-green-800">{queue.waitingCount} waiting</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-gray-400">No queues waiting</div>
+                  )}
+                </div>
               </>
             )}
             {activeTab === "contacts" && <ContactSection />}
@@ -448,31 +424,9 @@ const Dashboard = () => {
                 {/* Add more analytics and reporting features here as needed */}
               </div>
             )}
-            {/* Knowledge Base Dialog */}
-            {showKBPopup && (
-              <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-y-auto relative p-8 flex flex-col">
-                  <button className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 transition" onClick={() => setShowKBPopup(false)}>
-                    <X size={32} />
-                  </button>
-                  <KnowledgeBaseSearch />
-                </div>
-              </div>
-            )}
-            {/* Canned Answers Dialog */}
-            {showCannedPopup && (
-              <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] overflow-y-auto relative p-8 flex flex-col">
-                  <button className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 transition" onClick={() => setShowCannedPopup(false)}>
-                    <X size={32} />
-                  </button>
-                  <CannedResponseSearch />
-                </div>
-              </div>
-            )}
           </div>
         </main>
-        {/* Sidebar removed for cleaner layout */}
+
         {/* Floating Call Button with bounce animation */}
         <button
           className={`fixed bottom-10 right-10 z-50 w-16 h-16 rounded-2xl bg-indigo-500 shadow-xl text-white text-2xl flex items-center justify-center hover:bg-indigo-600 transition ${!isSIPReady ? 'opacity-50 cursor-not-allowed' : ''} animate-bounce`}
@@ -484,27 +438,24 @@ const Dashboard = () => {
         </button>
       </div>
 
-      {/* Show CallPopup if there is a live call OR if keypad is requested */}
-      {(sip.callSession || sip.incomingCall || showKeypad) && (
-        <CallPopup
-          showKeypad={showKeypad}
-          setShowKeypad={setShowKeypad}
-          callSession={sip.callSession}
-          incomingCall={sip.incomingCall}
-          callTimer={sip.callTimer}
-          hangup={sip.hangup}
-          answer={sip.answer}
-          holdCall={sip.holdCall}
-          unholdCall={sip.unholdCall}
-          muteCall={sip.muteCall}
-          unmuteCall={sip.unmuteCall}
-          transferCall={sip.transferCall}
-          makeCall={sip.makeCall}
-          formatTime={sip.formatTime}
-          iceStatus={sip.iceStatus}
-          agentStatus={sip.agentStatus}
-        />
-      )}
+      <CallPopup
+        showKeypad={showKeypad}
+        setShowKeypad={setShowKeypad}
+        callSession={sip.callSession}
+        incomingCall={sip.incomingCall}
+        callTimer={sip.callTimer}
+        hangup={sip.hangup}
+        answer={sip.answer}
+        holdCall={sip.holdCall}
+        unholdCall={sip.unholdCall}
+        muteCall={sip.muteCall}
+        unmuteCall={sip.unmuteCall}
+        transferCall={sip.transferCall}
+        makeCall={sip.makeCall}
+        formatTime={sip.formatTime}
+        iceStatus={sip.iceStatus}
+        agentStatus={sip.agentStatus}
+      />
     </>
   );
 };
@@ -533,7 +484,7 @@ if (typeof window !== 'undefined') {
     }
     @keyframes countUp {
       from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1, transform: scale(1); }
+      to { opacity: 1; transform: scale(1); }
     }
   `;
   document.head.appendChild(style);
