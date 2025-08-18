@@ -94,10 +94,13 @@ const login = async (req, res) => {
     }
 };
 
+const refresh = async (req, res) => {
+
+}
 
 module.exports = {
     me,
-    // refresh,
+    refresh,
     register,
     login,
     logout,

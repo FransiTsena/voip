@@ -48,7 +48,7 @@ const ReportDashboard: React.FC = () => {
       const res = await axios.get(`${baseUrl}/api/report/calls/count`);
       setCounts(res.data.data);
     } catch {
-      setError('Failed to fetch call counts');
+     console.log("Faild to featch alll counts")
     }
   };
 
