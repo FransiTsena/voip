@@ -18,22 +18,12 @@ import Sidebar from './Sidebar';
 import ContactSection from './ContactSection';
 import { baseUrl } from '../baseUrl';
 import KnowledgeBaseSearch from './KnowledgeBaseSearch';
+import { BookOpen, X } from 'lucide-react';
 import CannedResponseSearch from './CannedResponseSearch';
 
 const Header = ({ handleSearch, search, setSearch }) => (
   <div className="flex flex-col md:flex-row items-center justify-between space-y-4 md:space-y-0">
-    <form onSubmit={handleSearch} className="flex flex-1 max-w-md bg-white rounded-lg shadow-inner overflow-hidden border border-gray-200">
-      <input
-        type="text"
-        className="flex-1 px-4 py-3 text-base focus:outline-none"
-        placeholder="Search Knowledge Base..."
-        value={search}
-        onChange={e => setSearch(e.target.value)}
-      />
-      <button type="submit" className="px-5 bg-indigo-600 hover:bg-indigo-700 transition-colors text-white font-semibold">
-        Search
-      </button>
-    </form>
+    {/* Removed Knowledge Base search field */}
     <div className="flex items-center space-x-4">
       <Bell className="text-2xl text-gray-500 hover:text-gray-700 transition-colors" title="Real-time Alerts" />
       <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold tracking-wide">System: OK</span>
@@ -272,6 +262,9 @@ const Dashboard = () => {
   const [queueWaitingReport, setQueueWaitingReport] = useState([]);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showKeypad, setShowKeypad] = useState(false);
+  const [showKBPopup, setShowKBPopup] = useState(false);
+  const [showCannedPopup, setShowCannedPopup] = useState(false);
+  // Dialog state moved to main return block below
   const [shiftReport, setShiftReport] = useState({ agent: null, shifts: [], totalShifts: 0, totalDuration: 0 });
   const [loadingShifts, setLoadingShifts] = useState(false);
 
@@ -288,7 +281,6 @@ const Dashboard = () => {
         totalShifts: data.totalShifts || 0,
         totalDuration: data.totalDuration || 0,
         page: data.page || 1,
-        totalPages: data.totalPages || 1,
       });
     } catch (err) {
       setShiftReport({ agent: null, shifts: [], totalShifts: 0, totalDuration: 0, page: 1, totalPages: 1 });
@@ -390,10 +382,27 @@ const Dashboard = () => {
         setAgentStatus={setAgentStatus}
       />
 
-      <div className="flex h-[calc(100vh-68px)] bg-gray-100 text-gray-800">
+      <div className="flex h-[calc(100vh-68px)]  text-gray-800">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} tabs={["dashboard", "contacts", "analytics"]} />
         <main className="flex-1 overflow-y-auto px-8 py-6">
           <div className="max-w-5xl mx-auto flex flex-col space-y-8">
+            {/* Top action buttons for dialogs */}
+            <div className="flex gap-4 justify-end mb-4">
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white font-semibold shadow hover:bg-indigo-700 transition"
+                onClick={() => setShowKBPopup(true)}
+              >
+                <BookOpen size={20} />
+                Knowledge Base
+              </button>
+              <button
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white font-semibold shadow hover:bg-blue-600 transition"
+                onClick={() => setShowCannedPopup(true)}
+              >
+                <span className="inline-block w-4 h-4 bg-blue-200 rounded-full mr-1" />
+                Canned Answers
+              </button>
+            </div>
             {activeTab === "dashboard" && (
               <>
                 <Header handleSearch={handleSearch} search={search} setSearch={setSearch} />
@@ -439,14 +448,31 @@ const Dashboard = () => {
                 {/* Add more analytics and reporting features here as needed */}
               </div>
             )}
+            {/* Knowledge Base Dialog */}
+            {showKBPopup && (
+              <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl h-[90vh] overflow-y-auto relative p-8 flex flex-col">
+                  <button className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 transition" onClick={() => setShowKBPopup(false)}>
+                    <X size={32} />
+                  </button>
+                  <KnowledgeBaseSearch />
+                </div>
+              </div>
+            )}
+            {/* Canned Answers Dialog */}
+            {showCannedPopup && (
+              <div className="fixed inset-0 z-50 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center animate-fadeIn">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl h-[80vh] overflow-y-auto relative p-8 flex flex-col">
+                  <button className="absolute top-6 right-6 text-gray-400 hover:text-gray-700 transition" onClick={() => setShowCannedPopup(false)}>
+                    <X size={32} />
+                  </button>
+                  <CannedResponseSearch />
+                </div>
+              </div>
+            )}
           </div>
         </main>
-        <aside className="w-96 bg-white p-4 overflow-y-auto border-l">
-          <KnowledgeBaseSearch />
-          <div className="mt-4">
-            <CannedResponseSearch />
-          </div>
-        </aside>
+        {/* Sidebar removed for cleaner layout */}
         {/* Floating Call Button with bounce animation */}
         <button
           className={`fixed bottom-10 right-10 z-50 w-16 h-16 rounded-2xl bg-indigo-500 shadow-xl text-white text-2xl flex items-center justify-center hover:bg-indigo-600 transition ${!isSIPReady ? 'opacity-50 cursor-not-allowed' : ''} animate-bounce`}
@@ -458,24 +484,27 @@ const Dashboard = () => {
         </button>
       </div>
 
-      <CallPopup
-        showKeypad={showKeypad}
-        setShowKeypad={setShowKeypad}
-        callSession={sip.callSession}
-        incomingCall={sip.incomingCall}
-        callTimer={sip.callTimer}
-        hangup={sip.hangup}
-        answer={sip.answer}
-        holdCall={sip.holdCall}
-        unholdCall={sip.unholdCall}
-        muteCall={sip.muteCall}
-        unmuteCall={sip.unmuteCall}
-        transferCall={sip.transferCall}
-        makeCall={sip.makeCall}
-        formatTime={sip.formatTime}
-        iceStatus={sip.iceStatus}
-        agentStatus={sip.agentStatus}
-      />
+      {/* Show CallPopup if there is a live call OR if keypad is requested */}
+      {(sip.callSession || sip.incomingCall || showKeypad) && (
+        <CallPopup
+          showKeypad={showKeypad}
+          setShowKeypad={setShowKeypad}
+          callSession={sip.callSession}
+          incomingCall={sip.incomingCall}
+          callTimer={sip.callTimer}
+          hangup={sip.hangup}
+          answer={sip.answer}
+          holdCall={sip.holdCall}
+          unholdCall={sip.unholdCall}
+          muteCall={sip.muteCall}
+          unmuteCall={sip.unmuteCall}
+          transferCall={sip.transferCall}
+          makeCall={sip.makeCall}
+          formatTime={sip.formatTime}
+          iceStatus={sip.iceStatus}
+          agentStatus={sip.agentStatus}
+        />
+      )}
     </>
   );
 };
@@ -504,7 +533,7 @@ if (typeof window !== 'undefined') {
     }
     @keyframes countUp {
       from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1; transform: scale(1); }
+      to { opacity: 1, transform: scale(1); }
     }
   `;
   document.head.appendChild(style);

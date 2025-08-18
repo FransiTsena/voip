@@ -113,7 +113,7 @@ const useStore = create((set, get) => ({
     const config = isWeb
       ? { withCredentials: true }
       : { headers: token ? { Authorization: `Bearer ${token}` } : {} };
-    const { data } = await axios.get(`${baseUrl}/api/canned-responses?keyword=${query}`, config);
+    const { data } = await axios.get(`${baseUrl}/canned-responses?keyword=${query}`, config);
     set({ cannedResponses: data });
   },
   startShift: async (agentId) => {

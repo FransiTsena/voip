@@ -1,104 +1,114 @@
 import React, { useState } from 'react';
-import { UserCog, LogOut } from 'lucide-react';
+import { Wifi, LogOut } from 'lucide-react';
 import useStore from '../store/store';
 
 const NavBar = ({ onLogout, isSIPReady, agentStatus, setAgentStatus }) => {
-    const agent = useStore(state => state.agent);
-    const [showShiftModal, setShowShiftModal] = useState(false);
-    const [shiftReport, setShiftReport] = useState([]);
-    const [loadingShifts, setLoadingShifts] = useState(false);
+    const agent = useStore((state) => state.agent);
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
-    const fetchShiftReport = async () => {
-        if (!agent?.id) return;
-        setLoadingShifts(true);
-        try {
-            const res = await fetch(`/api/metrics/agent/${agent.id}/shifts`);
-            const data = await res.json();
-            setShiftReport(data.shifts || []);
-        } catch (err) {
-            setShiftReport([]);
-        }
-        setLoadingShifts(false);
+    // Get first two letters of agent's name for avatar
+    const getInitials = (name) => {
+        if (!name) return 'NA';
+        const initials = name
+            .split(' ')
+            .map((word) => word.charAt(0))
+            .join('')
+            .slice(0, 2)
+            .toUpperCase();
+        return initials;
     };
-
-    const openShiftModal = () => {
-        setShowShiftModal(true);
-        fetchShiftReport();
-    };
-    const closeShiftModal = () => setShowShiftModal(false);
 
     return (
-        <>
-            <nav className="w-full z-50 bg-white shadow-xl px-8 py-4 flex items-center justify-between sticky top-0">
-                <div className="flex items-center gap-4">
-                    <span className="text-blue-500 text-2xl font-black tracking-wide drop-shadow-lg">INSA CC</span>
-                </div>
-                <div className="flex items-center gap-8">
-                    {/* Agent Status Dropdown - Modern Style */}
-                    <div className="flex items-center bg-gray-50 rounded-xl px-3 py-1 shadow-inner border border-gray-200 gap-2">
-                        <span className="font-semibold text-gray-700">Status:</span>
-                        <select
-                            value={agentStatus}
-                            onChange={e => setAgentStatus(e.target.value)}
-                            className="px-3 py-1 rounded-lg border-2 border-indigo-300 text-indigo-700 font-bold bg-white focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all shadow-sm"
+        <nav className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+            {/* Logo and Title */}
+            <div className="flex items-center gap-3">
+                <img
+                    src="/logo.png"
+                    alt="FE Call Center Logo"
+                    className="h-10 w-10 rounded-lg shadow-sm"
+                />
+                <span className="text-xl font-bold text-gray-900 tracking-tight">
+                    FE Call Center
+                </span>
+            </div>
+
+            {/* Right Side: Status and Profile */}
+            <div className="flex items-center gap-4">
+                {/* Agent Status Toggle */}
+                <button
+                    className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 shadow-sm border border-gray-200 ${isSIPReady && agentStatus === 'Available'
+                        ? 'bg-blue-50 text-blue-600 hover:bg-blue-100'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        } ${!isSIPReady ? 'opacity-60 cursor-not-allowed' : ''}`}
+                    onClick={() =>
+                        isSIPReady &&
+                        setAgentStatus(agentStatus === 'Available' ? 'Unavailable' : 'Available')
+                    }
+                    disabled={!isSIPReady}
+                    aria-label={`Set agent status to ${agentStatus === 'Available' ? 'Unavailable' : 'Available'}`}
+                    title={`Set ${agentStatus === 'Available' ? 'Unavailable' : 'Available'}`}
+                >
+                    <Wifi
+                        size={20}
+                        className={
+                            isSIPReady
+                                ? agentStatus === 'Available'
+                                    ? 'text-blue-600'
+                                    : 'text-gray-600'
+                                : 'text-gray-400'
+                        }
+                    />
+                    <span className="text-sm font-semibold">{agentStatus}</span>
+                </button>
+
+                {/* Agent Profile with Dropdown */}
+                {agent && (
+                    <div className="relative">
+                        <button
+                            className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg border border-gray-100 shadow-sm hover:bg-gray-100 transition-all duration-200"
+                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                            aria-label="Toggle profile menu"
+                            aria-expanded={isDropdownOpen}
                         >
-                            <option value="Available" disabled={!isSIPReady}>Available</option>
-                            <option value="Paused">Paused</option>
-                            <option value="Do Not Disturb">Do Not Disturb</option>
-                        </select>
-                        <span className={`ml-2 text-xs font-bold ${isSIPReady ? 'text-green-500' : 'text-red-500'}`}>{isSIPReady ? 'SIP Ready' : 'SIP Not Ready'}</span>
-                    </div>
-                    {agent && (
-                        <div className="flex flex-col items-end mr-4">
-                            <span className="text-blue-500 font-bold text-lg flex items-center gap-2"><UserCog className="text-blue-200" /> {agent.name}</span>
-                            <span className="text-blue-100 text-xs">{agent.email}</span>
-                        </div>
-                    )}
-                    <button
-                        className="bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 py-2 rounded-xl shadow-lg hover:scale-105 transition-transform font-bold focus:outline-none focus:ring-2 focus:ring-pink-300 flex items-center gap-2"
-                        onClick={onLogout}
-                        title="Logout"
-                    >
-                        <LogOut className="text-lg" />
-                    </button>
-                </div>
-            </nav>
-            {/* Shift Report Modal */}
-            {showShiftModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-xl shadow-2xl p-8 w-full max-w-2xl relative">
-                        <button className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-xl" onClick={closeShiftModal}>&times;</button>
-                        <h2 className="text-xl font-bold mb-4 text-indigo-700">Shift Report</h2>
-                        {loadingShifts ? (
-                            <div className="text-center text-gray-500">Loading...</div>
-                        ) : shiftReport.length === 0 ? (
-                            <div className="text-center text-gray-500">No shift records found.</div>
-                        ) : (
-                            <table className="w-full text-sm border">
-                                <thead>
-                                    <tr className="bg-indigo-50">
-                                        <th className="p-2 border">Start Time</th>
-                                        <th className="p-2 border">End Time</th>
-                                        <th className="p-2 border">Duration (s)</th>
-                                        <th className="p-2 border">Reason</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {shiftReport.map((shift, idx) => (
-                                        <tr key={idx} className={shift.ongoing ? "bg-yellow-50" : ""}>
-                                            <td className="p-2 border">{shift.startTime ? new Date(shift.startTime).toLocaleString() : '-'}</td>
-                                            <td className="p-2 border">{shift.endTime ? new Date(shift.endTime).toLocaleString() : (shift.ongoing ? 'Ongoing' : '-')}</td>
-                                            <td className="p-2 border">{Math.round(shift.duration)}</td>
-                                            <td className="p-2 border">{shift.reason || '-'}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                            <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-700 font-semibold text-sm">
+                                {getInitials(agent.name)}
+                            </div>
+                            <div className="flex flex-col items-start">
+                                <span className="text-sm font-medium text-gray-900">{agent.name}</span>
+                                <span className="text-xs text-gray-500 hidden sm:block">{agent.email}</span>
+                            </div>
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {isDropdownOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-100 rounded-lg shadow-lg z-50">
+                                <button
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                    onClick={() => {
+                                        setIsDropdownOpen(false);
+                                        // Placeholder for shift report action
+                                        console.log('View Shift Report');
+                                    }}
+                                >
+                                    <span>Shift Report</span>
+                                </button>
+                                <button
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                                    onClick={() => {
+                                        setIsDropdownOpen(false);
+                                        onLogout();
+                                    }}
+                                    aria-label="Logout"
+                                >
+                                    <LogOut size={16} />
+                                    <span>Logout</span>
+                                </button>
+                            </div>
                         )}
                     </div>
-                </div>
-            )}
-        </>
+                )}
+            </div>
+        </nav>
     );
 };
 

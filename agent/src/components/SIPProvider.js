@@ -40,7 +40,7 @@ export const SIPProvider = ({ children }) => {
             data.sip?.password || ""
           );
         }
-      } catch {}
+      } catch { }
     };
     fetchSipPassword();
   }, [SIP_USER]);
@@ -134,7 +134,7 @@ export const SIPProvider = ({ children }) => {
           // Play ringtone
           if (ringtoneRef.current) {
             ringtoneRef.current.currentTime = 0;
-            ringtoneRef.current.play().catch(() => {});
+            ringtoneRef.current.play().catch(() => { });
           }
           // Stop ringtone on answer, reject, or end
           session.on("accepted", () => {
@@ -154,7 +154,7 @@ export const SIPProvider = ({ children }) => {
           peerconnection.ontrack = (event) => {
             if (remoteAudioRef.current) {
               remoteAudioRef.current.srcObject = event.streams[0];
-              remoteAudioRef.current.play().catch(() => {});
+              remoteAudioRef.current.play().catch(() => { });
             }
           };
           peerconnection.oniceconnectionstatechange = () => {
@@ -207,7 +207,11 @@ export const SIPProvider = ({ children }) => {
   const setAgentStatus = async (newStatus) => {
     setAgentStatusState(newStatus);
     await notifyAgentStatus(newStatus);
-    if (newStatus === "Paused" || newStatus === "Do Not Disturb") {
+    if (
+      newStatus === "Paused" ||
+      newStatus === "Do Not Disturb" ||
+      newStatus === "Unavailable"
+    ) {
       stopUA();
     } else if (newStatus === "Available") {
       startUA();
@@ -281,11 +285,11 @@ export const SIPProvider = ({ children }) => {
       try {
         console.log("🎤 Requesting microphone access...");
         const stream = await (window.navigator.mediaDevices &&
-        window.navigator.mediaDevices.getUserMedia
+          window.navigator.mediaDevices.getUserMedia
           ? window.navigator.mediaDevices.getUserMedia({ audio: true })
           : Promise.reject(
-              new Error("getUserMedia not supported in this browser")
-            ));
+            new Error("getUserMedia not supported in this browser")
+          ));
 
         console.log("✅ Microphone access granted:", stream);
 
@@ -378,11 +382,11 @@ export const SIPProvider = ({ children }) => {
     }
     try {
       const stream = await (window.navigator.mediaDevices &&
-      window.navigator.mediaDevices.getUserMedia
+        window.navigator.mediaDevices.getUserMedia
         ? window.navigator.mediaDevices.getUserMedia({ audio: true })
         : Promise.reject(
-            new Error("getUserMedia not supported in this browser")
-          ));
+          new Error("getUserMedia not supported in this browser")
+        ));
       const eventHandlers = {
         progress: () => setStatus("Ringing..."),
         failed: (e) => handleCallEnd(`Call failed: ${e.cause}`),
