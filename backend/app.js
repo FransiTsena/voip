@@ -28,6 +28,7 @@ const supervisorRoutes = require('./routes/supervisorRoutesV2');
 const extensionRoutes = require('./routes/extension');
 const userRoutes = require('./routes/userRoutes');
 const advancedMetricsRoutes = require('./routes/advancedMetricsRoutes');
+const monitoringRoutes = require('./routes/monitoringRoutes');
 // =========================
 // App Initialization
 // =========================
@@ -102,6 +103,9 @@ app.use('/api/extensions', extensionRoutes);
 
 // User Routes
 app.use('/api/users', userRoutes);
+
+// Monitoring Routes
+app.use('/api/monitoring', monitoringRoutes);
 
 // Call Routes
 app.use('/api/call', callRoutes);
