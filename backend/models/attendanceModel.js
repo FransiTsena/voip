@@ -17,12 +17,11 @@ const attendanceSchema = new Schema({
         enum: ['present', 'absent', 'late'],
         default: 'absent'
     },
-    checkInTime: {
-        type: Date
+    agentId: {
+        type: Schema.Types.ObjectId,
+        ref: 'User',
+        required: true
     },
-    checkOutTime: {
-        type: Date
-    }
 }, { timestamps: true });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);

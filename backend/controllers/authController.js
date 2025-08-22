@@ -44,9 +44,6 @@ const register = async (req, res) => {
             userExtension,
         });
 
-        if (user && user.role === 'agent') {
-            await AgentProfile.create({ user: user._id, queues: queues || [] });
-        }
 
         if (user) {
             res.status(201).json({
@@ -71,17 +68,6 @@ const login = async (req, res) => {
         if (user && (await user.matchPassword(password))) {
             const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '8h' });
 
-            if (user.role === 'agent') {
-                const sipPassword = token.substring(0, 16);
-                const extension = await Extension.findOne({ userExtension: user.userExtension });
-                if (extension) {
-                    extension.passwordForNewUser = sipPassword;
-                    extension.secret = sipPassword;
-                    await extension.save();
-                    const allExtensions = await Extension.find();
-                    await generateAndWritePjsipConfigs(allExtensions);
-                }
-            }
 
             res.cookie('access_token', token, {
                 httpOnly: true,

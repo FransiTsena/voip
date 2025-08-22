@@ -44,8 +44,9 @@ const calculateFCR = async (customerId) => {
     return fcr;
 };
 
+// agentId here refers to a user with role 'agent'
 const calculateAHT = async (agentId) => {
-    // AHT Calculation
+    // AHT Calculation for user with role 'agent'
     const ahtAggregation = await CallLog.aggregate([
         {
             $match: {

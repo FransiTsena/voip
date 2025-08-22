@@ -4,6 +4,7 @@ const ini = require("ini");
 const { exec } = require("child_process");
 // AMI is now available globally
 const Extension = require("../models/extension");
+const User = require("../models/userModel");
 const e = require("express");
 // const hashPassword = require('../utils/hashPassword');
 // const axios = require('axios');
@@ -111,28 +112,28 @@ function removeUser(username) {
 
 // Update agent status (e.g., online/offline)
 const updateAgentStatusRoute = asyncHandler(async (req, res) => {
-  const { extension, status } = req.body;
-  if (!extension || !status) {
-    return errorResponse(res, 400, "extension and status are required.");
+  const { userId, status } = req.body;
+  if (!userId || !status) {
+    return errorResponse(res, 400, "userId and status are required.");
   }
   const allowedStatuses = ["online", "offline", "busy", "away"];
   if (!allowedStatuses.includes(status)) {
     return errorResponse(res, 400, "Invalid status value.");
   }
-  const agent = await Agent.findOneAndUpdate(
-    { extension },
+  const user = await User.findOneAndUpdate(
+    { _id: userId, role: "agent" },
     { $set: { status } },
     { new: true }
   );
-  if (!agent) return errorResponse(res, 404, "Agent not found.");
-  res.json({ message: "Agent status updated.", agent });
+  if (!user) return errorResponse(res, 404, "Agent (user) not found.");
+  res.json({ message: "Agent status updated.", user });
 });
 
 // Update agent/extension information
 const updateAgentInfo = asyncHandler(async (req, res) => {
   const { extension } = req.params;
   const { displayName, secret } = req.body;
-  
+
   if (!extension) {
     return errorResponse(res, 400, "Extension is required.");
   }
@@ -166,7 +167,7 @@ const updateAgentInfo = asyncHandler(async (req, res) => {
 // Create new agent/extension
 const createAgent = asyncHandler(async (req, res) => {
   const { userExtension, displayName, secret } = req.body;
-  
+
   if (!userExtension || !displayName || !secret) {
     return errorResponse(res, 400, "userExtension, displayName, and secret are required.");
   }
@@ -212,68 +213,13 @@ const createAgent = asyncHandler(async (req, res) => {
   });
 });
 
-// Get all agents (with basic info, no passwords)
-
-// Get all extensions using AMI (PJSIPShowEndpoints)
+// Get all agents (users with role 'agent')
 async function getAllAgents(req, res) {
   try {
-    console.log("[PJSIP] Fetching all agents from AMI");
-    console.log(global.amiReady, global.ami);
-    console.log("[PJSIP] Fetching all agents from AMI");
-    if (!global.amiReady || !global.ami) {
-      return res
-        .status(503)
-        .json({ error: "Asterisk AMI is not connected yet." });
-    }
-    let endpoints = [];
-    let completed = false;
-
-    // Handler for EndpointList events
-    const onEndpointList = (event) => {
-      console.log("[PJSIP] EndpointList event received:", event);
-      console.log(event);
-      endpoints.push(event);
-    };
-    const onEndpointListComplete = (event) => {
-      completed = true;
-      cleanup();
-      const extensionList = endpoints.map((e) => ({
-        exten: e.ObjectName,
-        aor: e.AOR,
-        state: e.State,
-        contacts: e.Contacts,
-        transport: e.Transport,
-        identifyBy: e.IdentifyBy,
-        deviceState: e.DeviceState,
-        // eventType: e.Event
-      }));
-      return res.status(200).json(extensionList);
-    };
-
-    // Cleanup function to remove listeners
-    const cleanup = () => {
-      global.ami.removeListener("EndpointList", onEndpointList);
-      global.ami.removeListener("EndpointListComplete", onEndpointListComplete);
-    };
-
-    // Listen for EndpointList and EndpointListComplete events BEFORE sending the action
-    global.ami.on("EndpointList", onEndpointList);
-    global.ami.on("EndpointListComplete", onEndpointListComplete);
-
-    // Send the action to trigger events
-    await global.ami.action({ Action: "PJSIPShowEndpoints" });
-
-    // Timeout in case EndpointListComplete is not received
-    setTimeout(() => {
-      if (!completed) {
-        cleanup();
-        return res
-          .status(504)
-          .json({ error: "Timeout waiting for EndpointListComplete event." });
-      }
-    }, 5000);
+    const agents = await User.find({ role: 'agent' }, '-password');
+    res.status(200).json(agents);
   } catch (error) {
-    res.status(500).json({ error: error.message, details: error });
+    res.status(500).json({ error: error.message });
   }
 }
 
@@ -347,10 +293,10 @@ const getAgentCallLogById = asyncHandler(async (req, res) => {
   res.json(agent);
 });
 
-// Get total count of agents
+// Get total count of agents (users with role 'agent')
 const getAgentCount = async (req, res) => {
   try {
-    const count = await Extension.countDocuments();
+    const count = await User.countDocuments({ role: 'agent' });
     res.json({ success: true, count });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -376,7 +322,7 @@ const getRealTimeAgentStatus = async (req, res) => {
 
     // Import state from realTimeAgent
     const { state } = require("./agentControllers/realTimeAgent");
-    
+
     // Get enriched agent data similar to the socket emission
     const agents = await Extension.find({}, { userExtension: 1, displayName: 1, _id: 1 }).lean();
     const agentDataMap = {};
@@ -385,7 +331,7 @@ const getRealTimeAgentStatus = async (req, res) => {
       const nameParts = agent.displayName ? agent.displayName.split(' ') : ['Agent', agent.userExtension];
       const firstName = nameParts[0] || 'Agent';
       const lastName = nameParts.slice(1).join(' ') || agent.userExtension;
-      
+
       agentDataMap[agent.userExtension] = {
         id: agent._id,
         extension: agent.userExtension,
@@ -402,31 +348,31 @@ const getRealTimeAgentStatus = async (req, res) => {
     // If no agents in realTimeAgent state, try to load them
     if (Object.keys(state.agents || {}).length === 0) {
       console.log('⚠️ No agents in realTimeAgent state, loading from database...');
-      const { getOrCreateAgent } = require("./agentControllers/realTimeAgent");
-      
-      for (const agent of agents) {
-        await getOrCreateAgent(agent.userExtension);
-      }
+      // const { getOrCreateAgent } = require("./agentControllers/realTimeAgent");
+
+      // for (const agent of agents) {
+      //   await getOrCreateAgent(agent.userExtension);
+      // }
       console.log(`✅ Loaded ${Object.keys(state.agents).length} agents into realTimeAgent state`);
     }
 
     // Map real-time status with database info using realTimeAgent state
     const enrichedAgents = [];
-    
+
     for (const agent of agents) {
       const realtimeAgent = state.agents[agent.userExtension];
       const nameParts = agent.displayName ? agent.displayName.split(' ') : ['Agent', agent.userExtension];
       const firstName = nameParts[0] || 'Agent';
       const lastName = nameParts.slice(1).join(' ') || agent.userExtension;
-      
+
       enrichedAgents.push({
         id: agent._id,
         extension: agent.userExtension,
         first_name: firstName,
         last_name: lastName,
         full_name: agent.displayName || `Agent ${agent.userExtension}`,
-        status: realtimeAgent ? (realtimeAgent.deviceState === 'NOT_INUSE' ? 'online' : 
-                                realtimeAgent.deviceState === 'UNAVAILABLE' ? 'offline' : 'busy') : 'offline',
+        status: realtimeAgent ? (realtimeAgent.deviceState === 'NOT_INUSE' ? 'online' :
+          realtimeAgent.deviceState === 'UNAVAILABLE' ? 'offline' : 'busy') : 'offline',
         deviceState: realtimeAgent ? realtimeAgent.deviceState : 'UNAVAILABLE',
         liveStatus: realtimeAgent ? realtimeAgent.liveStatus : 'Unavailable',
         contacts: realtimeAgent ? realtimeAgent.contacts : '',
@@ -475,21 +421,21 @@ const getRealTimeAgentStatus = async (req, res) => {
 const triggerAgentStatusEmission = async (req, res) => {
   try {
     console.log('🔧 Manual trigger: Emitting agent status...');
-    
+
     const { emitAgentStatusOnly } = require('./agentControllers/realTimeAgent');
-    
+
     // Get io from global or app locals
     const io = req.app.get('io') || global.io;
-    
+
     if (!io) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Socket.IO instance not available' 
+      return res.status(500).json({
+        success: false,
+        error: 'Socket.IO instance not available'
       });
     }
-    
+
     await emitAgentStatusOnly(io);
-    
+
     res.json({
       success: true,
       message: 'Agent status emission triggered successfully',
@@ -506,7 +452,7 @@ const refreshAgentCache = asyncHandler(async (req, res) => {
   try {
     const { refreshAgentState, reloadAllAgents } = require('./agentControllers/realTimeAgent');
     const { forceReload } = req.query;
-    
+
     if (forceReload === 'true') {
       // Force complete reload from database
       await reloadAllAgents(global.io);

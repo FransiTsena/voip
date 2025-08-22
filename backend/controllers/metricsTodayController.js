@@ -2,16 +2,16 @@ const Shift = require('../models/shiftModel');
 const User = require('../models/userModel');
 const asyncHandler = require('express-async-handler');
 
-// @desc    Get today's agent shifts only
+// @desc    Get today's shifts for a user with role 'agent'
 // @route   GET /api/metrics/agent/:agentId/shifts/today
 // @access  Private
 const getAgentTodayShifts = asyncHandler(async (req, res) => {
     const { agentId } = req.params;
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const agent = await User.findById(agentId).select('displayName email userExtension');
-    if (!agent || agent.role !== 'agent') {
-        return res.status(404).json({ error: 'Agent not found' });
+    const agentUser = await User.findById(agentId).select('displayName email userExtension');
+    if (!agentUser || agentUser.role !== 'agent') {
+        return res.status(404).json({ error: 'Agent user not found' });
     }
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -51,7 +51,7 @@ const getAgentTodayShifts = asyncHandler(async (req, res) => {
     });
     res.json({
         agentId,
-        agent,
+        agent: agentUser,
         shifts: report,
         totalShifts,
         totalDuration,

@@ -45,7 +45,7 @@ const endShift = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Get all shifts for an agent
+// @desc    Get all shifts for a user with role 'agent'
 // @route   GET /api/shifts/agent/:agentId
 // @access  Private
 const getAgentShifts = asyncHandler(async (req, res) => {

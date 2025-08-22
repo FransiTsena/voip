@@ -9,6 +9,7 @@ const {
 
 router.post('/start', startShift);
 router.post('/end', endShift);
+// Route: Get shifts for a user with role 'agent'
 router.get('/agent/:agentId', getAgentShifts);
 
 // Add reason update endpoint here

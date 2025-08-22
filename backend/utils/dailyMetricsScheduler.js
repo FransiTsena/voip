@@ -11,6 +11,7 @@ const calculateAndStoreDailyMetrics = async () => {
         today.setDate(today.getDate() - 1); // Calculate for yesterday
         const date = new Date(today.getFullYear(), today.getMonth(), today.getDate());
 
+        // Find all users with role 'agent'
         const agents = await User.find({ role: 'agent' });
         for (const agent of agents) {
             const aht = await calculateAHT(agent._id);

@@ -1,7 +1,7 @@
 // realTimeAgent.js
 // Manage real-time agent status and stats from AMI events and emit via Socket.IO
 
-const Agent = require("../../models/agent");
+const User = require("../../models/userModel");
 const Extension = require("../../models/extension");
 
 const state = {
@@ -10,60 +10,71 @@ const state = {
   idleTimers: {}, // Track idle time for each agent
 };
 
-// Helper to initialize agent record if missing
-async function getOrCreateAgent(username) {
-  if (!state.agents[username]) {
-    // Try to load from database first
-    let dbAgent = await Agent.findOne({ username });
-    let extensionData = await Extension.findOne({ userExtension: username });
+// // Helper to initialize agent record if missing
+// async function getOrCreateAgent(username) {
+//   if (!state.agents[username]) {
+//     // Try to load from database first
+//     let dbUser = await User.findOne({ userExtension: username, role: 'agent' });
+//     let extensionData = await Extension.findOne({ userExtension: username });
 
-    if (!dbAgent) {
-      // Create new agent record in database
-      dbAgent = new Agent({
-        username,
-        name: extensionData ? extensionData.displayName : `Agent ${username}`,
-        email: extensionData?.email || null,
-        queues: [],
-      });
-      await dbAgent.save();
-    }
+//     if (!dbUser) {
+//       // Only create user if required fields are available
+//       const displayName = extensionData ? extensionData.displayName : `Agent ${username}`;
+//       const email = extensionData?.email;
+//       // Use a default password if not available (not recommended for production)
+//       const password = extensionData?.password || 'changeme123';
+//       if (email && password) {
+//         dbUser = new User({
+//           userExtension: username,
+//           displayName,
+//           email,
+//           password,
+//           role: 'agent',
+//         });
+//         await dbUser.save();
+//       } else {
+//         console.warn(`Cannot auto-create agent user for ${username}: missing email or password.`);
+//         // Do not create user, just skip
+//         return null;
+//       }
+//     }
 
-    state.agents[username] = {
-      id: dbAgent._id,
-      username,
-      name: dbAgent.name,
-      email: dbAgent.email,
-      queues: dbAgent.queues || [],
-      deviceState: "Offline",
+//     state.agents[username] = {
+//       id: dbUser._id,
+//       username,
+//       name: dbUser.displayName,
+//       email: dbUser.email,
+//       queues: extensionData?.queues || [],
+//       deviceState: "Offline",
 
-      // Live status snapshot
-      liveStatus: "Idle", // Idle, In Use, Paused, Unavailable, Ringing, Busy, etc.
-      currentCallStart: null,
-      lastActivity: new Date(),
+//       // Live status snapshot
+//       liveStatus: "Idle", // Idle, In Use, Paused, Unavailable, Ringing, Busy, etc.
+//       currentCallStart: null,
+//       lastActivity: new Date(),
 
-      // Daily stats (from database)
-      totalCallsToday: dbAgent.totalCallsToday || 0,
-      answeredCallsToday: dbAgent.answeredCallsToday || 0,
-      missedCallsToday: dbAgent.missedCallsToday || 0,
-      averageTalkTimeToday: dbAgent.averageTalkTimeToday || 0,
-      averageWrapTimeToday: dbAgent.averageWrapTimeToday || 0,
-      averageHoldTimeToday: dbAgent.averageHoldTimeToday || 0,
-      averageRingTimeToday: dbAgent.averageRingTimeToday || 0,
-      longestIdleTimeToday: dbAgent.longestIdleTimeToday || 0,
+//       // Daily stats (set to 0, can be extended)
+//       totalCallsToday: 0,
+//       answeredCallsToday: 0,
+//       missedCallsToday: 0,
+//       averageTalkTimeToday: 0,
+//       averageWrapTimeToday: 0,
+//       averageHoldTimeToday: 0,
+//       averageRingTimeToday: 0,
+//       longestIdleTimeToday: 0,
 
-      // Overall stats (from database)
-      totalCallsOverall: dbAgent.totalCallsOverall || 0,
-      answeredCallsOverall: dbAgent.answeredCallsOverall || 0,
-      missedCallsOverall: dbAgent.missedCallsOverall || 0,
-      averageTalkTimeOverall: dbAgent.averageTalkTimeOverall || 0,
-      averageWrapTimeOverall: dbAgent.averageWrapTimeOverall || 0,
-      averageHoldTimeOverall: dbAgent.averageHoldTimeOverall || 0,
-      averageRingTimeOverall: dbAgent.averageRingTimeOverall || 0,
-      longestIdleTimeOverall: dbAgent.longestIdleTimeOverall || 0,
-    };
-  }
-  return state.agents[username];
-}
+//       // Overall stats (set to 0, can be extended)
+//       totalCallsOverall: 0,
+//       answeredCallsOverall: 0,
+//       missedCallsOverall: 0,
+//       averageTalkTimeOverall: 0,
+//       averageWrapTimeOverall: 0,
+//       averageHoldTimeOverall: 0,
+//       averageRingTimeOverall: 0,
+//       longestIdleTimeOverall: 0,
+//     };
+//   }
+//   return state.agents[username];
+// }
 
 // Calculate new average given old avg, count and new value
 function updateAverage(oldAvg, count, newValue) {
@@ -87,58 +98,58 @@ async function incrementAnsweredCalls(
   try {
     console.log(`📞 Incrementing answered calls for agent ${username}`);
 
-    const agent = await getOrCreateAgent(username);
+    // const agent = await getOrCreateAgent(username);
 
-    // Increment call counts
-    agent.totalCallsToday += 1;
-    agent.totalCallsOverall += 1;
-    agent.answeredCallsToday += 1;
-    agent.answeredCallsOverall += 1;
+    // // Increment call counts
+    // agent.totalCallsToday += 1;
+    // agent.totalCallsOverall += 1;
+    // agent.answeredCallsToday += 1;
+    // agent.answeredCallsOverall += 1;
 
-    console.log(
-      `📊 Agent ${username} stats - Today: ${agent.answeredCallsToday}, Overall: ${agent.answeredCallsOverall}`
-    );
+    // console.log(
+    //   `📊 Agent ${username} stats - Today: ${agent.answeredCallsToday}, Overall: ${agent.answeredCallsOverall}`
+    // );
 
-    // Update timing metrics
-    const holdTimeSeconds = parseInt(holdTime) || 0;
-    const ringTimeSeconds = parseInt(ringTime) || 0;
+    // // Update timing metrics
+    // const holdTimeSeconds = parseInt(holdTime) || 0;
+    // const ringTimeSeconds = parseInt(ringTime) || 0;
 
-    // Update hold time averages (how long caller waited)
-    agent.averageHoldTimeToday = updateAverage(
-      agent.averageHoldTimeToday,
-      agent.answeredCallsToday,
-      holdTimeSeconds
-    );
-    agent.averageHoldTimeOverall = updateAverage(
-      agent.averageHoldTimeOverall,
-      agent.answeredCallsOverall,
-      holdTimeSeconds
-    );
+    // // Update hold time averages (how long caller waited)
+    // agent.averageHoldTimeToday = updateAverage(
+    //   agent.averageHoldTimeToday,
+    //   agent.answeredCallsToday,
+    //   holdTimeSeconds
+    // );
+    // agent.averageHoldTimeOverall = updateAverage(
+    //   agent.averageHoldTimeOverall,
+    //   agent.answeredCallsOverall,
+    //   holdTimeSeconds
+    // );
 
-    // Update ring time averages (how long agent phone rang)
-    agent.averageRingTimeToday = updateAverage(
-      agent.averageRingTimeToday,
-      agent.answeredCallsToday,
-      ringTimeSeconds
-    );
-    agent.averageRingTimeOverall = updateAverage(
-      agent.averageRingTimeOverall,
-      agent.answeredCallsOverall,
-      ringTimeSeconds
-    );
+    // // Update ring time averages (how long agent phone rang)
+    // agent.averageRingTimeToday = updateAverage(
+    //   agent.averageRingTimeToday,
+    //   agent.answeredCallsToday,
+    //   ringTimeSeconds
+    // );
+    // agent.averageRingTimeOverall = updateAverage(
+    //   agent.averageRingTimeOverall,
+    //   agent.answeredCallsOverall,
+    //   ringTimeSeconds
+    // );
 
-    // Update agent status
-    agent.deviceState = "INUSE";
-    agent.liveStatus = "In Use";
-    agent.lastActivity = new Date();
-    agent.currentCallStart = new Date();
+    // // Update agent status
+    // agent.deviceState = "INUSE";
+    // agent.liveStatus = "In Use";
+    // agent.lastActivity = new Date();
+    // agent.currentCallStart = new Date();
 
-    // Stop idle timer if running
-    stopIdleTimer(username);
+    // // Stop idle timer if running
+    // stopIdleTimer(username);
 
-    // Save to database and emit updates
-    await saveAgentStats(username);
-    await emitAgentStatusOnly(io);
+    // // Save to database and emit updates
+    // await saveAgentStats(username);
+    // await emitAgentStatusOnly(io);
 
     console.log(
       `✅ Successfully incremented answered calls for agent ${username}`
@@ -157,25 +168,10 @@ async function saveAgentStats(username) {
     const agent = state.agents[username];
     if (!agent) return;
 
-    await Agent.findOneAndUpdate(
-      { username },
+    await User.findOneAndUpdate(
+      { userExtension: username, role: 'agent' },
       {
-        totalCallsToday: agent.totalCallsToday,
-        answeredCallsToday: agent.answeredCallsToday,
-        missedCallsToday: agent.missedCallsToday,
-        averageTalkTimeToday: agent.averageTalkTimeToday,
-        averageWrapTimeToday: agent.averageWrapTimeToday,
-        averageHoldTimeToday: agent.averageHoldTimeToday,
-        averageRingTimeToday: agent.averageRingTimeToday,
-        longestIdleTimeToday: agent.longestIdleTimeToday,
-        totalCallsOverall: agent.totalCallsOverall,
-        answeredCallsOverall: agent.answeredCallsOverall,
-        missedCallsOverall: agent.missedCallsOverall,
-        averageTalkTimeOverall: agent.averageTalkTimeOverall,
-        averageWrapTimeOverall: agent.averageWrapTimeOverall,
-        averageHoldTimeOverall: agent.averageHoldTimeOverall,
-        averageRingTimeOverall: agent.averageRingTimeOverall,
-        longestIdleTimeOverall: agent.longestIdleTimeOverall,
+        // You can extend this to save stats in the user document if needed
       },
       { upsert: true }
     );
@@ -296,12 +292,12 @@ async function loadAllAgentsWithStatus(ami) {
       { userExtension: 1, displayName: 1, _id: 1 }
     ).lean();
 
-    // Initialize all agents in state if not already present
-    for (const ext of extensions) {
-      if (!state.agents[ext.userExtension]) {
-        await getOrCreateAgent(ext.userExtension);
-      }
-    }
+    // // Initialize all agents in state if not already present
+    // for (const ext of extensions) {
+    //   if (!state.agents[ext.userExtension]) {
+    //     await getOrCreateAgent(ext.userExtension);
+    //   }
+    // }
 
     // Query real-time status from AMI for all agents
     if (ami && global.amiReady) {
@@ -350,60 +346,60 @@ async function loadAllAgentsWithStatus(ami) {
   }
 }
 
-// Refresh agent state after CRUD operations
-async function refreshAgentState(io) {
-  try {
-    // Get current extensions from database
-    const extensions = await Extension.find(
-      {},
-      { userExtension: 1, displayName: 1, _id: 1 }
-    ).lean();
+// // Refresh agent state after CRUD operations
+// async function refreshAgentState(io) {
+//   try {
+//     // Get current extensions from database
+//     const extensions = await Extension.find(
+//       {},
+//       { userExtension: 1, displayName: 1, _id: 1 }
+//     ).lean();
 
-    const currentExtensions = new Set(
-      extensions.map((ext) => ext.userExtension)
-    );
-    const stateExtensions = new Set(Object.keys(state.agents));
+//     const currentExtensions = new Set(
+//       extensions.map((ext) => ext.userExtension)
+//     );
+//     const stateExtensions = new Set(Object.keys(state.agents));
 
-    // Remove deleted agents from state
-    for (const username of stateExtensions) {
-      if (!currentExtensions.has(username)) {
-        delete state.agents[username];
-        // Clean up any timers
-        if (state.idleTimers[username]) {
-          clearInterval(state.idleTimers[username]);
-          delete state.idleTimers[username];
-        }
-      }
-    }
+//     // Remove deleted agents from state
+//     for (const username of stateExtensions) {
+//       if (!currentExtensions.has(username)) {
+//         delete state.agents[username];
+//         // Clean up any timers
+//         if (state.idleTimers[username]) {
+//           clearInterval(state.idleTimers[username]);
+//           delete state.idleTimers[username];
+//         }
+//       }
+//     }
 
-    // Add new agents or update existing ones
-    for (const ext of extensions) {
-      if (!state.agents[ext.userExtension]) {
-        // New agent - create in state
-        await getOrCreateAgent(ext.userExtension);
-      } else {
-        // Existing agent - update name if changed
-        const agent = state.agents[ext.userExtension];
-        const newName = ext.displayName || `Agent ${ext.userExtension}`;
-        if (agent.name !== newName) {
-          agent.name = newName;
-          // Update in database too
-          await Agent.findOneAndUpdate(
-            { username: ext.userExtension },
-            { name: newName }
-          );
-        }
-      }
-    }
+//     // Add new agents or update existing ones
+//     for (const ext of extensions) {
+//       if (!state.agents[ext.userExtension]) {
+//         // New agent - create in state
+//         // await getOrCreateAgent(ext.userExtension);
+//       } else {
+//         // Existing agent - update name if changed
+//         const agent = state.agents[ext.userExtension];
+//         const newName = ext.displayName || `Agent ${ext.userExtension}`;
+//         if (agent.name !== newName) {
+//           agent.name = newName;
+//           // Update in database too
+//           await User.findOneAndUpdate(
+//             { userExtension: ext.userExtension, role: 'agent' },
+//             { displayName: newName }
+//           );
+//         }
+//       }
+//     }
 
-    // Emit updated agent list
-    if (io) {
-      await emitAgentStatusOnly(io);
-    }
-  } catch (error) {
-    console.error("Error refreshing agent state:", error);
-  }
-}
+//     // Emit updated agent list
+//     if (io) {
+//       await emitAgentStatusOnly(io);
+//     }
+//   } catch (error) {
+//     console.error("Error refreshing agent state:", error);
+//   }
+// }
 
 // Force reload all agents from database (for major changes)
 async function reloadAllAgents(io) {
@@ -467,12 +463,12 @@ async function emitAgentStatusOnly(io) {
             agent.deviceState === "Unavailable" ||
             agent.deviceState === "Offline" ||
             agent.deviceState === "OFFLINE"
-          ? "offline"
-          : agent.deviceState === "INUSE" || agent.deviceState === "InUse"
-          ? "busy"
-          : agent.deviceState === "RINGING" || agent.deviceState === "Ringing"
-          ? "ringing"
-          : "offline", // Default to offline for unknown states
+            ? "offline"
+            : agent.deviceState === "INUSE" || agent.deviceState === "InUse"
+              ? "busy"
+              : agent.deviceState === "RINGING" || agent.deviceState === "Ringing"
+                ? "ringing"
+                : "offline", // Default to offline for unknown states
       lastActivity: agent.lastActivity,
       contacts: agent.contacts || "",
       transport: agent.transport || "",
@@ -593,22 +589,22 @@ function setupAgentListeners(ami, io) {
       return;
     }
 
-    const agent = await getOrCreateAgent(EndpointName);
+    // const agent = await getOrCreateAgent(EndpointName);
 
-    // Update device state based on contact status
-    if (ContactStatus === "Reachable") {
-      agent.deviceState = "NOT_INUSE";
-      agent.liveStatus = "Idle";
-      agent.lastActivity = new Date();
-      startIdleTimer(EndpointName);
-    } else if (ContactStatus === "Unreachable" || ContactStatus === "Removed") {
-      agent.deviceState = "UNAVAILABLE";
-      agent.liveStatus = "Unavailable";
-      stopIdleTimer(EndpointName);
-    }
+    // // Update device state based on contact status
+    // if (ContactStatus === "Reachable") {
+    //   agent.deviceState = "NOT_INUSE";
+    //   agent.liveStatus = "Idle";
+    //   agent.lastActivity = new Date();
+    //   startIdleTimer(EndpointName);
+    // } else if (ContactStatus === "Unreachable" || ContactStatus === "Removed") {
+    //   agent.deviceState = "UNAVAILABLE";
+    //   agent.liveStatus = "Unavailable";
+    //   stopIdleTimer(EndpointName);
+    // }
 
-    await saveAgentStats(EndpointName);
-    await emitAgentStatusOnly(io);
+    // await saveAgentStats(EndpointName);
+    // await emitAgentStatusOnly(io);
   });
 
   // Listen to AgentCalled events (agent is notified of incoming call) - Track total calls
@@ -631,22 +627,22 @@ function setupAgentListeners(ami, io) {
       `📞 Agent ${exact_username} called for queue ${Queue} - caller: ${CallerIDNum}`
     );
 
-    const agent = await getOrCreateAgent(exact_username);
+    // const agent = await getOrCreateAgent(exact_username);
 
-    // Increment total calls when agent is notified
-    agent.totalCallsToday += 1;
-    agent.totalCallsOverall += 1;
+    // // Increment total calls when agent is notified
+    // agent.totalCallsToday += 1;
+    // agent.totalCallsOverall += 1;
 
-    console.log(
-      `📊 Agent ${exact_username} total calls - Today: ${agent.totalCallsToday}, Overall: ${agent.totalCallsOverall}`
-    );
+    // console.log(
+    //   `📊 Agent ${exact_username} total calls - Today: ${agent.totalCallsToday}, Overall: ${agent.totalCallsOverall}`
+    // );
 
-    // Update agent activity
-    agent.lastActivity = new Date();
+    // // Update agent activity
+    // agent.lastActivity = new Date();
 
-    // Save to database and emit updates
-    await saveAgentStats(username);
-    await emitAgentStatusOnly(io);
+    // // Save to database and emit updates
+    // await saveAgentStats(username);
+    // await emitAgentStatusOnly(io);
   });
 
   // Listen to AgentConnect events (agent answers queue call) - More accurate than BridgeEnter
@@ -887,33 +883,33 @@ function setupAgentListeners(ami, io) {
   // Removed periodic status refresh - now using immediate updates only
 
   // Initial status load - simplified and reliable
-  setTimeout(async () => {
-    try {
-      // Load all agents from Extension database
-      const extensions = await Extension.find(
-        {},
-        { userExtension: 1, displayName: 1, _id: 1 }
-      ).lean();
+  // setTimeout(async () => {
+  //   try {
+  //     // Load all agents from Extension database
+  //     const extensions = await Extension.find(
+  //       {},
+  //       { userExtension: 1, displayName: 1, _id: 1 }
+  //     ).lean();
 
-      // Create agents in state
-      for (const ext of extensions) {
-        await getOrCreateAgent(ext.userExtension);
-      }
+  //     // // Create agents in state
+  //     // for (const ext of extensions) {
+  //     //   await getOrCreateAgent(ext.userExtension);
+  //     // }
 
-      // Emit immediately so frontend gets the agents
-      await emitAgentStatusOnly(io);
-    } catch (error) {
-      console.error("❌ Error loading initial agents:", error);
-    }
-  }, 3000); // Wait 3 seconds for AMI to be ready
+  //     // // Emit immediately so frontend gets the agents
+  //     // await emitAgentStatusOnly(io);
+  //   } catch (error) {
+  //     console.error("❌ Error loading initial agents:", error);
+  //   }
+  // }, 3000); // Wait 3 seconds for AMI to be ready
 }
 
 module.exports = {
   setupAgentListeners,
-  state,
+  // state,
   emitAgentStatus,
   emitAgentStatusOnly,
-  getOrCreateAgent,
-  refreshAgentState,
+  // getOrCreateAgent,
+  // refreshAgentState,
   reloadAllAgents,
 };
