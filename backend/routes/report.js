@@ -7,7 +7,7 @@ const { listRecordings, streamRecordingByCallLogId } = require('../controllers/r
 
 
 
-// AGENTS REPORT ROUTES
+// AGENTS REPORT ROUTES (users with role 'agent')
 // GET /report/agents/all
 router.get('/agents/all', agentsController.getAllAgents);
 // GET /report/agents/call-status

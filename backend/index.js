@@ -44,76 +44,65 @@ const ami = new AmiClient();
 global.ami = ami;
 global.amiReady = false;
 global.io = io;
+// Ensure global state objects are always initialized
+global.state = global.state || {};
+global.agentState = global.agentState || { agents: {} };
 
 // Connect to AMI, then set up all event listeners and socket connections.
-ami
-  .connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
+ami.connect(AMI_USERNAME, AMI_PASSWORD, { host: AMI_HOST, port: AMI_PORT })
   .then(() => {
     console.log("✅ [AMI] Connected successfully!");
     global.amiReady = true;
 
-    // CRITICAL: Set up the AMI event listeners ONCE after a successful connection.
-    setupAmiEventListeners(ami, io);
-    
-    // Initialize queue statistics scheduler
-    scheduleQueueStatsCalculation();
-    // Initialize daily metrics scheduler
-    scheduleDailyMetricsCalculation();
-    // Handle individual client (browser) connections.
-    io.on("connection", (socket) => {
-      console.log(`🔌 Client connected: ${socket.id}`);
+    try {
+      setupAmiEventListeners(ami, io);
+    } catch (err) {
+      console.error("❌ Error setting up AMI event listeners:", err);
+    }
 
-      // When a new client connects, send them the current state immediately.
-      // This ensures their dashboard is populated without waiting for a new event.
-      
-      // Send current queue members to new clients
-      const { emitQueueMembersStatus } = require("./config/amiConfig");
-      // For individual socket, we need to emit directly
-      const flattenedMembers = [];
-      Object.keys(state.queueMembers).forEach(queueId => {
-        state.queueMembers[queueId].forEach(member => {
-          flattenedMembers.push({
-            ...member,
-            queueName: global.queueNameMap?.[queueId] || queueId
+    try {
+      scheduleQueueStatsCalculation();
+      scheduleDailyMetricsCalculation();
+    } catch (err) {
+      console.error("❌ Error initializing schedulers:", err);
+    }
+
+    io.on("connection", (socket) => {
+      try {
+        console.log(`🔌 Client connected: ${socket.id}`);
+        const { emitQueueMembersStatus } = require("./config/amiConfig");
+        const flattenedMembers = [];
+        Object.keys(state.queueMembers || {}).forEach(queueId => {
+          (state.queueMembers[queueId] || []).forEach(member => {
+            flattenedMembers.push({
+              ...member,
+              queueName: global.queueNameMap?.[queueId] || queueId
+            });
           });
         });
-      });
-      socket.emit("queueMembers", flattenedMembers);
+        socket.emit("queueMembers", flattenedMembers);
 
-      // Send current enriched agent status if available
-      if (Object.keys(agentState.agents).length > 0) {
-        emitAgentStatusOnly(socket); // Send to this specific socket
-      }
-
-      // Send current queue statistics if available
-      const { emitAllQueueStats } = require("./controllers/queueControllers/realTimeQueueStats");
-      emitAllQueueStats(socket);
-
-      // Send current ongoing calls to new clients immediately
-      // socket.emit("ongoingCalls", Object.values(state.ongoingCalls));
-      console.log(`📞 Sent ${Object.keys(state.ongoingCalls).length} ongoing calls to new client ${socket.id}`);
-
-      // Handle request for current agent list - now uses enriched data.
-      socket.on("on-going-calles", ()=>{
-        io.emit('ongoingCalls',Object.values(state.ongoingCalls))
-        io.emit('queueStatus', Object.values(state.queueCallers))
-      })
-      socket.on("requestAgentList", () => {
-        try {
-          if (!global.amiReady) {
-            socket.emit("agentListError", { error: "AMI not connected" });
-            return;
-          }
-
-          // Send the enriched agent data immediately from memory
+        if (agentState && agentState.agents && Object.keys(agentState.agents).length > 0) {
           emitAgentStatusOnly(socket);
-        } catch (error) {
-          socket.emit("agentListError", { error: error.message });
         }
-      });
+
+        const { emitAllQueueStats } = require("./controllers/queueControllers/realTimeQueueStats");
+        emitAllQueueStats(socket);
+
+        console.log(`📞 Sent ${Object.keys(state.ongoingCalls || {}).length} ongoing calls to new client ${socket.id}`);
+
+        io.on("on-going-calles", ()=>{
+          io.emit('ongoingCalls',Object.values(state.ongoingCalls || {}))
+          io.emit('queueStatus', Object.values(state.queueCallers || {}))
+        });
+      } catch (err) {
+        console.error("❌ Error handling new socket connection:", err);
+      }
+    });
+  });
 
       // Handle request for current queue statistics
-      socket.on("requestAllQueueStats", () => {
+      io.on("requestAllQueueStats", () => {
         try {
           if (!global.amiReady) {
             socket.emit("queueStatsError", { error: "AMI not connected" });
@@ -130,7 +119,7 @@ ami
       });
 
       // Handle events received FROM this specific client.
-      socket.on("hangupCall", (linkedId) => {
+      io.on("hangupCall", (linkedId) => {
         if (!linkedId) return;
 
         console.log(
@@ -148,19 +137,10 @@ ami
         }
       });
 
-      socket.on("disconnect", () => {
+      io.on("disconnect", () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);
       });
-    });
-  })
-  .catch((err) => {
-    console.error(
-      "❌ [AMI] Connection failed. The application cannot start.",
-      err
-    );
-    // Exit the process if we can't connect to Asterisk, as the app is non-functional.
-    process.exit(1);
-  });
+    
 
 // --- Start Server ---
 server.listen(PORT, () => {

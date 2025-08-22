@@ -4,7 +4,7 @@ const Queue = require("../models/queue.js");
 const fs = require("fs");
 const path = require("path");
 const Shift = require("../models/shiftModel");
-const Agent = require("../models/agent");
+const User = require("../models/userModel");
 
 const recordingsBasePath =
   process.env.RECORDINGS_BASE_PATH ||
@@ -99,11 +99,11 @@ async function startAgentShiftByExtension(extensionNumber) {
     // If a shift is already active in memory, resume
     if (state.agentShifts[extensionNumber]) {
       // Resume logic: check for pending end in DB
-      const agent = await Agent.findOne({ username: extensionNumber });
-      if (!agent)
-        throw new Error(`Agent not found for username: ${extensionNumber}`);
+      const user = await User.findOne({ username: extensionNumber, role: 'agent' });
+      if (!user)
+        throw new Error(`Agent (user) not found for username: ${extensionNumber}`);
       let ongoingShift = await Shift.findOne({
-        agentId: agent._id,
+        agentId: user._id,
         endTime: null,
       });
       if (
@@ -122,12 +122,12 @@ async function startAgentShiftByExtension(extensionNumber) {
       return;
     }
     // Find agent by username (which is the extension number)
-    const agent = await Agent.findOne({ username: extensionNumber });
-    if (!agent)
-      throw new Error(`Agent not found for username: ${extensionNumber}`);
+    const user = await User.findOne({ username: extensionNumber, role: 'agent' });
+    if (!user)
+      throw new Error(`Agent (user) not found for username: ${extensionNumber}`);
     // Check for any ongoing shift in DB (no endTime)
     let ongoingShift = await Shift.findOne({
-      agentId: agent._id,
+      agentId: user._id,
       endTime: null,
     });
     if (ongoingShift) {
@@ -152,7 +152,7 @@ async function startAgentShiftByExtension(extensionNumber) {
       return;
     }
     // Otherwise, start a new shift
-    const shift = new Shift({ agentId: agent._id, startTime: new Date() });
+    const shift = new Shift({ agentId: user._id, startTime: new Date() });
     const createdShift = await shift.save();
     state.agentShifts[extensionNumber] = createdShift._id;
   } catch (err) {

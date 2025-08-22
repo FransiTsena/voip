@@ -22,8 +22,8 @@ const contactSchema = new mongoose.Schema({
     },
     agentId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Agent',
-        required: true,
+        ref: 'User',
+        required: true
     },
 });
 

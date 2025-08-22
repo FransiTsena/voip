@@ -4,16 +4,17 @@ const User = require('../models/userModel');
 const asyncHandler = require('express-async-handler');
 const Shift = require('../models/shiftModel');
 
+// Get metrics for a user with role 'agent'
 const getAgentMetrics = asyncHandler(async (req, res) => {
   const { agentId } = req.params;
   const now = new Date();
   const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
 
-  const agent = await User.findById(agentId);
-  if (!agent || agent.role !== 'agent') {
+  const agentUser = await User.findById(agentId);
+  if (!agentUser || agentUser.role !== 'agent') {
     res.status(404);
-    throw new Error('Agent not found');
+    throw new Error('Agent user not found');
   }
 
   const ticketsResolved = await Ticket.countDocuments({
@@ -24,24 +25,24 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
 
   const callsHandled = await CallLog.countDocuments({
     $or: [
-      { callee: agent.userExtension },
-      { callerId: agent.userExtension }
+      { callee: agentUser.userExtension },
+      { callerId: agentUser.userExtension }
     ],
     startTime: { $gte: startOfDay, $lt: endOfDay },
   });
 
   const totalCalls = await CallLog.countDocuments({
     $or: [
-      { callee: agent.userExtension },
-      { callerId: agent.userExtension }
+      { callee: agentUser.userExtension },
+      { callerId: agentUser.userExtension }
     ],
     startTime: { $gte: startOfDay, $lt: endOfDay },
   });
 
   const missedCalls = await CallLog.countDocuments({
     $or: [
-      { callee: agent.userExtension },
-      { callerId: agent.userExtension }
+      { callee: agentUser.userExtension },
+      { callerId: agentUser.userExtension }
     ],
     status: 'missed',
     startTime: { $gte: startOfDay, $lt: endOfDay },
@@ -51,8 +52,8 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
     {
       $match: {
         $or: [
-          { callee: agent.userExtension },
-          { callerId: agent.userExtension }
+          { callee: agentUser.userExtension },
+          { callerId: agentUser.userExtension }
         ],
         status: 'answered',
         startTime: { $gte: startOfDay, $lt: endOfDay },
@@ -89,15 +90,16 @@ const getAgentMetrics = asyncHandler(async (req, res) => {
   });
 });
 
+// Get shift report for a user with role 'agent'
 const getAgentShiftReport = asyncHandler(async (req, res) => {
   const { agentId } = req.params;
-  const agent = await User.findById(agentId).select('displayName email userExtension');
-  if (!agent || agent.role !== 'agent') {
-    return res.status(404).json({ error: 'Agent not found' });
+  const agentUser = await User.findById(agentId).select('displayName email userExtension');
+  if (!agentUser || agentUser.role !== 'agent') {
+    return res.status(404).json({ error: 'Agent user not found' });
   }
   const shifts = await Shift.find({ agentId }).sort({ startTime: -1 });
   if (!shifts || shifts.length === 0) {
-    return res.json({ agentId, agent, shifts: [], totalShifts: 0, totalDuration: 0 });
+    return res.json({ agentId, agent: agentUser, shifts: [], totalShifts: 0, totalDuration: 0 });
   }
   let totalDuration = 0;
   const report = shifts.map(shift => {

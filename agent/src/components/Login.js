@@ -14,7 +14,7 @@ const Login = ({ onSwitch }) => {
         setError('');
         setLoading(true);
         try {
-            const res = await fetch(`${baseUrl}/api/auth/login`, {
+            const res = await fetch(`${baseUrl}/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),

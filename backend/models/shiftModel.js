@@ -3,8 +3,8 @@ const mongoose = require('mongoose');
 const shiftSchema = new mongoose.Schema({
   agentId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Agent',
-    required: true,
+    ref: 'User',
+    required: true
   },
   startTime: {
     type: Date,

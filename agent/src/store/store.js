@@ -25,7 +25,7 @@ const useStore = create((set, get) => ({
 
   refreshToken: async () => {
     try {
-      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
+      const res = await fetch(`${baseUrl}/auth/refresh`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -45,7 +45,7 @@ const useStore = create((set, get) => ({
 
   logout: async () => {
     try {
-      await fetch(`${baseUrl}/api/auth/logout`, {
+      await fetch(`${baseUrl}/auth/logout`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -107,7 +107,7 @@ const useStore = create((set, get) => ({
 
   fetchCurrentUser: async () => {
     try {
-      const res = await fetch(`${baseUrl}/api/auth/me`, {
+      const res = await fetch(`${baseUrl}/auth/me`, {
         method: 'GET',
         credentials: 'include',
       });
