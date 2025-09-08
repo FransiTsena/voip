@@ -8,9 +8,7 @@ const CustomReportBuilder: React.FC = () => {
         agents: [],
         queues: [],
     });
-    const [reportData, setReportData] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
-
+    
     const handleMetricChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { value, checked } = e.target;
         if (checked) {

@@ -551,8 +551,7 @@ const Agent: React.FC = () => {
                     const stats =
                       statsView === "daily"
                         ? agent.dailyStats
-                        : agent.overallStats;
-                    const successRate =
+                        : agent.overallStats; 
                       stats.totalCalls > 0
                         ? (
                             ((stats.totalCalls - stats.missedCalls) /

@@ -36,12 +36,33 @@ interface IVRState {
 
 interface ErrorState { [key: string]: string; }
 
+// --- PROPS INTERFACES ---
+interface IVREntriesProps {
+  entries: IVREntry[];
+  setEntries: React.Dispatch<React.SetStateAction<IVREntry[]>>;
+  systemRecordings: Recording[];
+  allIvrs: IvrInfo[];
+  allExtensions: Extension[];
+  allQueues: Queue[];
+}
+
+interface IVRFormProps {
+  ivrId: string | null;
+  onSave: () => void;
+  onCancel: () => void;
+}
+
+interface IVRListProps {
+  onEdit: (id: string) => void;
+  onCreate: () => void;
+}
+
 // --- REUSABLE COMPONENTS ---
 
-const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensions, allQueues }) => {
-  const handleEntryChange = (id: number, field: keyof IVREntry, value: string | number) => {
-    const newEntries = entries.map((entry: { id: number; }) =>
-      entry.id === id ? { ...entry, [field]: value } : entry
+const IVREntries: React.FC<IVREntriesProps> = ({ entries, setEntries, systemRecordings, allIvrs, allExtensions, allQueues }) => {
+  const handleEntryChange = (entryId: number, field: keyof IVREntry, value: string) => {
+    const newEntries = entries.map(entry =>
+      entry.id === entryId ? { ...entry, [field]: value } : entry
     );
     setEntries(newEntries);
   };
@@ -89,7 +110,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
         return (
           <select value={entry.value} onChange={e => handleEntryChange(entry.id, 'value', e.target.value)} className={commonSelectClass}>
             <option value="">Select Extension</option>
-            {allExtensions.map((ext: { _id: React.Key | null | undefined; extension: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; name: string | number | bigint | boolean | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | React.ReactPortal | Promise<string | number | bigint | boolean | React.ReactPortal | React.ReactElement<unknown, string | React.JSXElementConstructor<any>> | Iterable<React.ReactNode> | null | undefined> | null | undefined; }) => <option key={ext._id} value={ext.extension}>{ext.extension} ({ext.name})</option>)}
+            {allExtensions.map(ext => <option key={ext._id} value={ext.extension}>{ext.extension} ({ext.name})</option>)}
           </select>
         );
       default:
@@ -129,7 +150,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
                 title="Delete Entry"
               >
                 {/* Smaller Trash can SVG icon */}
-                <svg xmlns="https://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </button>
@@ -144,7 +165,7 @@ const IVREntries = ({ entries, setEntries, systemRecordings, allIvrs, allExtensi
 
 // --- PAGE COMPONENTS ---
 
-const IVRForm = ({ ivrId, onSave, onCancel }) => {
+const IVRForm: React.FC<IVRFormProps> = ({ ivrId, onSave, onCancel }) => {
     const isEditMode = !!ivrId;
     const [ivr, setIvr] = useState<IVRState>({
         name: '', description: '',
@@ -164,14 +185,10 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
     const [systemRecordings, setSystemRecordings] = useState<Recording[]>([]);
     const [allIvrs, setAllIvrs] = useState<IvrInfo[]>([]);
     const [allExtensions, setAllExtensions] = useState<Extension[]>([]);
-    const [loadingExtensions, setLoadingExtensions] = useState(false);
-    const [extensionError, setExtensionError] = useState<string | null>(null);
     const [allQueues, setAllQueues] = useState<Queue[]>([]);
 
     useEffect(() => {
         const fetchData = async () => {
-            setLoadingExtensions(true);
-            setExtensionError(null);
             try {
                 // Fetch all required reference data in parallel
                 const [recordingsRes, ivrsRes, extensionsRes, queuesRes] = await Promise.all([
@@ -188,10 +205,10 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                 setSystemRecordings(recordingsRes.data.data || []); // Assuming recordings might be data.data
                 setAllIvrs(ivrsRes.data || []); // Assuming IVR list is directly data
                 // Parse extension response from /api/agent to fit Extension interface
-                const extensions = (extensionsRes.data || []).map((ext: any) => ({
+                const extensions = (extensionsRes.data || []).map((ext: { exten: string; name?: string; deviceState?: string; }) => ({
                     _id: ext.exten, // Use exten as unique ID
                     extension: ext.exten,
-                    name: ext.deviceState || '', // Or any other property you want to show
+                    name: ext.name || ext.deviceState || '', // Use name if available, fallback to deviceState
                 }));
                 setAllExtensions(extensions);
                 setAllQueues(queuesRes.data || []); // FIX: Assuming queue list is directly data, not data.data
@@ -201,9 +218,9 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                     const ivrResponse = await axios.get(`${API_URL}/api/ivr/menu/${ivrId}`);
                     const fetchedIvrData = ivrResponse.data; // Confirmed: no 'data' wrapper for single IVR
 
-                    const entries = (fetchedIvrData.entries || []).map((entry: { _id: any; }) => ({
+                    const entries = (fetchedIvrData.entries || []).map((entry: { _id: string; }) => ({
                         ...entry,
-                        id: entry._id || Date.now() // Use existing _id for existing entries, new ID for new ones
+                        id: entry._id || Date.now().toString() // Use existing _id for existing entries, new ID for new ones
                     }));
 
                     setIvr({
@@ -229,8 +246,6 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                 } else {
                     setErrors({ form: 'Failed to load required data for new IVR. Please try again.' });
                 }
-                setLoadingExtensions(false);
-                setExtensionError('Failed to load extensions.');
             } finally {
                 setLoading(false);
             }
@@ -260,7 +275,11 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
         setSubmitting(true);
         try {
             const payload = { ...ivr };
-            payload.entries = ivr.entries.map(({ id, ...rest }) => rest); // Clean client-side 'id'
+            payload.entries = ivr.entries.map((entry) => {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const { id, ...rest } = entry;
+                return rest;
+            }); // Clean client-side 'id'
 
             if (isEditMode && ivrId) {
                 await axios.put(`${API_URL}/api/ivr/menu/${ivrId}`, payload);
@@ -329,7 +348,14 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
                         </div>
                     </div>
                 </div>
-                <IVREntries entries={ivr.entries} setEntries={(newEntries: any) => setIvr(prev => ({ ...prev, entries: newEntries }))} systemRecordings={systemRecordings} allIvrs={allIvrs} allExtensions={allExtensions} allQueues={allQueues} />
+                <IVREntries 
+                  entries={ivr.entries} 
+                  setEntries={(newEntries) => setIvr(prev => ({ ...prev, entries: newEntries }))} 
+                  systemRecordings={systemRecordings} 
+                  allIvrs={allIvrs} 
+                  allExtensions={allExtensions} 
+                  allQueues={allQueues} 
+                />
                 <div className="flex justify-end space-x-4 pt-4">
                     <button type="button" onClick={onCancel} className="px-6 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300" disabled={submitting}>Cancel</button>
                     <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300" disabled={submitting}>{submitting ? 'Saving...' : 'Save IVR'}</button>
@@ -339,7 +365,7 @@ const IVRForm = ({ ivrId, onSave, onCancel }) => {
     );
 };
 
-const IVRList = ({ onEdit, onCreate }) => {
+const IVRList: React.FC<IVRListProps> = ({ onEdit, onCreate }) => {
     const [ivrs, setIvrs] = useState<IvrInfo[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -403,7 +429,7 @@ export default function App() {
             setCurrentIvrId(null);
             setView('list');
         }
-    }, [id, window.location.pathname]); // Depend on 'id' and pathname to react to URL changes
+    }, [id]); // Depend on 'id' to react to URL changes
 
     const handleEdit = (selectedId: string) => {
         navigate(`/ivr-menu/edit/${selectedId}`);

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useState } from "react";
 import axios from "axios";
 import {
   PhoneCall,
@@ -8,7 +8,14 @@ import {
   Mic,
   PhoneIncoming,
 } from "lucide-react";
-import { RTCSession } from "jssip/lib/RTCSession";
+
+// Add this declaration to fix the MediaConstraints issue
+declare global {
+  interface MediaStreamConstraints {
+    audio?: boolean | MediaTrackConstraints;
+    video?: boolean | MediaTrackConstraints;
+  }
+}
 
 interface ActiveCall {
   id: string;
@@ -90,13 +97,19 @@ const CallStatus: React.FC<CallStatusProps> = ({ activeCalls }) => {
   const [selectedCall, setSelectedCall] = useState<ActiveCall | null>(null);
   const [selectedAction, setSelectedAction] = useState<"Listen" | "Whisper" | "Barge" | null>(null);
   const [monitorModalErrorMessage, setMonitorModalErrorMessage] = useState<string | null>(null);
-  const API = import.meta.env.VITE_API_URL || "http://localhost:4000";
+  
+  // Fix for import.meta.env by using a simple string fallback
+  const API = "http://localhost:4000"; // Using a direct fallback instead of import.meta.env
 
   const getCallDuration = (startTime: number): string => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     const mins = Math.floor(elapsed / 60);
     const secs = elapsed % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    // Fix for padStart by using a custom padding function
+    const pad = (num: number): string => {
+      return num < 10 ? `0${num}` : `${num}`;
+    };
+    return `${pad(mins)}:${pad(secs)}`;
   };
 
   const handleMonitorAction = async (call: ActiveCall, action: "Listen" | "Whisper" | "Barge") => {
@@ -118,9 +131,20 @@ const CallStatus: React.FC<CallStatusProps> = ({ activeCalls }) => {
       }, { withCredentials: true });
       setIsMonitorModalOpen(true);
     } catch (err: any) {
-      setMonitorModalErrorMessage(
-        `Failed to initiate ${action}: ${err.response?.data?.message || err.message}`
-      );
+      // Fix for async/await error handling
+      if (err.response) {
+        setMonitorModalErrorMessage(
+          `Failed to initiate ${action}: ${err.response.data?.message || err.response.statusText}`
+        );
+      } else if (err.request) {
+        setMonitorModalErrorMessage(
+          `Failed to initiate ${action}: No response from server`
+        );
+      } else {
+        setMonitorModalErrorMessage(
+          `Failed to initiate ${action}: ${err.message}`
+        );
+      }
       setIsMonitorModalOpen(true);
     }
   };
