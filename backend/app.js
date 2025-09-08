@@ -24,7 +24,7 @@ const callRoutes = require('./routes/callRoutes');
 const authRoutes = require('./routes/auth');
 const contactRoutes = require('./routes/contactRoutes');
 
-const supervisorRoutes = require('./routes/supervisorRoutesV2');
+const supervisorRoutes = require('./routes/supervisorRoutes');
 const extensionRoutes = require('./routes/extension');
 const userRoutes = require('./routes/userRoutes');
 const advancedMetricsRoutes = require('./routes/advancedMetricsRoutes');

@@ -41,6 +41,10 @@ const createSendToken = (user, statusCode, res) => {
 
 const registerSupervisor = async (req, res) => {
   try {
+    // Debugging: Log the raw request body
+    console.log('Raw request body:', req.body);
+    console.log('Request headers:', req.headers);
+    
     const { email, name, password } = req.body;
 
     if (!email || !name || !password) {
@@ -198,7 +202,12 @@ const loginSupervisor = async (req, res) => {
     }
 
     const user = await Supervisor.findOne({ email }).select('+password');
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    console.log(user);
+    console.log(password);
+    console.log(user.password);
+    const match_pass = await user.matchPassword(password);
+    console.log(match_pass);
+    if (!user || !match_pass) {
       return res.status(401).json({
         status: 'fail',
         message: 'Incorrect email or password.',
